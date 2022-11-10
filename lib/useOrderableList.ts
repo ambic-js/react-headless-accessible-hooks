@@ -47,7 +47,7 @@ class OrderableListState {
 
 type ItemProps = Pick<
   React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>,
-  "onMouseDown" | "onMouseUp" | "onMouseMove"
+  "onMouseDown" | "onMouseUp" | "onMouseMove" | "style"
 >
 
 export const useOrderableList = <ItemType extends ObjectWithId>(
@@ -84,6 +84,8 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   const getItemProps = (id: string) => {
     // if (itemPropsCache.current[id]) return itemPropsCache[id]
 
+    const style = id === draggingId ? ({ position: "absolute" } as const) : {}
+
     const props: ItemProps = {
       onMouseDown: (event: React.MouseEvent) => {
         list.setDown(id, event)
@@ -92,22 +94,21 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
       // },
       onMouseMove: (event: React.MouseEvent) => {
         if (!list.isDrag(id, event)) return
-        startDrag()
+        startDrag(id)
       },
-    }
-
-    const startDrag = () => {
-      const draggingItemIndex = items.findIndex(
-        (item) => item.id === list.downId
-      )
-      setPlaceholderIndex(draggingItemIndex + 1)
-      // list.startDrag()
-      setDraggingId(id)
+      style,
     }
 
     // itemPropsCache.current[id] = props
 
     return props
+  }
+
+  const startDrag = (id: string) => {
+    const draggingItemIndex = items.findIndex((item) => item.id === id)
+    setPlaceholderIndex(draggingItemIndex + 1)
+    // list.startDrag()
+    setDraggingId(id)
   }
 
   return {

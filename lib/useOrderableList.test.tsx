@@ -103,6 +103,8 @@ describe("useOrderableList", () => {
       clientY: 20,
     })
 
+    expect(first.style.position).toBe("absolute")
+
     fireEvent.mouseUp(first, {
       clientX: 20,
       clientY: 20,
