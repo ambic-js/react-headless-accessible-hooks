@@ -1,6 +1,7 @@
 import type React from "react"
 import { useState, useMemo } from "react"
 import short from "short-uuid"
+import { DragService } from "./DragService"
 import { assertHTMLTarget } from "~/helpers"
 
 type ObjectWithId = {
@@ -16,231 +17,6 @@ const isPlaceholder = (
   item: Placeholder | ObjectWithId
 ): item is Placeholder => {
   return (item as Placeholder).__typename === "Placeholder"
-}
-
-type Point = { x: number; y: number }
-
-class OrderableListState {
-  downId: string | undefined
-  downAt: Point | undefined
-  lastPoint: Point | undefined
-  isDragging = false
-  draggingId: string | undefined
-  downElement: HTMLElement | undefined
-  downRect: DOMRect | undefined
-  itemRectCache: Record<string, DOMRect> = {}
-  elements: HTMLElement[] = []
-  maxElementIndex = 0
-
-  onMouseDown(event: React.MouseEvent) {
-    this.downAt = this.lastPoint = { x: event.clientX, y: event.clientY }
-    assertHTMLTarget(event)
-    this.downElement = event.target
-    this.downId = event.target.dataset.rhahOrderableListId
-    this.downRect = event.target.getBoundingClientRect()
-  }
-
-  resetElementList(length: number) {
-    console.log("resetting to length", length)
-    this.maxElementIndex = length - 1
-  }
-
-  pushElement(element: HTMLElement, index: number) {
-    if (this.elements[index] === element) {
-      console.log("element already present 👍")
-    } else {
-      console.log(
-        "setting",
-        index,
-        "=",
-        element.dataset.rhahPlaceholder
-          ? "[placeholder]"
-          : element.dataset.rhahOrderableListId
-      )
-      this.elements[index] = element
-      this.maxElementIndex = Math.max(this.maxElementIndex, index)
-    }
-  }
-
-  dragDidStartAt(id: string, x: number, y: number) {
-    // If we didn't mouse down on a draggable element, this is definitely not a drag
-    if (!this.downId || !this.downAt) return false
-    // If we moused down on a different draggable element, that's weird. Not a drag.
-    if (id !== this.downId) return false
-    // If we came up at the same pixel we went down, also not a drag.
-    if (x === this.downAt.x && y === this.downAt.y) return false
-    // Otherwise, yes it is a drag!
-    return true
-  }
-
-  getRect(element: HTMLElement) {
-    const id = element.dataset.rhahOrderableListId as string
-
-    if (this.itemRectCache[id]) return this.itemRectCache[id]
-
-    const rect = element.getBoundingClientRect()
-    this.itemRectCache[id] = rect
-
-    return rect
-  }
-
-  listen(setPlaceholderIndex: (index: number) => void) {
-    this.isDragging = true
-    console.log("listen")
-    assertDragging(this)
-
-    const handleMove = getMouseMoveHandler(this, setPlaceholderIndex)
-
-    const handleUp = () => {
-      console.log("up!")
-      window.removeEventListener("mousemove", handleMove)
-      window.removeEventListener("mouseup", handleUp)
-
-      this.downId = undefined
-      this.downAt = undefined
-      this.lastPoint = undefined
-      this.isDragging = false
-      this.draggingId = undefined
-      this.downElement = undefined
-      this.downRect = undefined
-    }
-
-    window.addEventListener("mousemove", handleMove)
-    window.addEventListener("mouseup", handleUp)
-  }
-}
-
-const getMouseMoveHandler =
-  (list: OrderableListState, setPlaceholderIndex: (index: number) => void) =>
-  (event: MouseEvent) => {
-    console.log("window mouse move handler")
-    assertDragging(list)
-
-    const dy = event.clientY - list.downAt.y
-
-    const position = getDragElementPosition(list.downRect, list.downAt, event)
-
-    list.downElement.style.top = position.top
-    list.downElement.style.left = position.left
-
-    const direction = event.clientY - list.lastPoint.y > 0 ? "down" : "up"
-    console.log("moving", direction)
-    list.lastPoint = { x: event.clientY, y: event.clientY }
-
-    let swappableElementIndex = -1
-
-    if (direction === "down") {
-      for (let i = 0; i <= list.maxElementIndex; i++) {
-        const element = list.elements[i]
-        if (element.dataset.rhahPlaceholder) continue
-        const targetRect = list.getRect(element)
-
-        // if (i > 1 && intrudesDown(dy, list.downRect, targetRect)) {
-        //   debugger
-        // }
-
-        const mightSwap = intrudesDown(
-          dy,
-          list.getRect(list.downElement),
-          targetRect
-        )
-
-        if (mightSwap) {
-          swappableElementIndex = i
-        } else {
-          break
-        }
-      }
-    } else {
-      for (let i = list.maxElementIndex; i >= 0; i--) {
-        const element = list.elements[i]
-        if (element.dataset.rhahPlaceholder) continue
-        const targetRect = list.getRect(element)
-        const mightSwap = intrudesUp(dy, list.downRect, targetRect)
-
-        if (mightSwap) {
-          swappableElementIndex = i
-        } else {
-          break
-        }
-      }
-    }
-
-    console.log("setting placeholderIndex in list to", swappableElementIndex)
-    setPlaceholderIndex(swappableElementIndex)
-  }
-
-const intrudesDown = (
-  dy: number,
-  draggingItemRect: DOMRect,
-  targetItemRect: DOMRect
-) => {
-  if (
-    draggingItemRect.bottom + dy >
-    targetItemRect.top + draggingItemRect.height / 2
-  ) {
-    return true
-  }
-  return false
-}
-
-const intrudesUp = (
-  dy: number,
-  draggingItemRect: DOMRect,
-  targetItemRect: DOMRect
-) => {
-  if (
-    draggingItemRect.top + dy <
-    targetItemRect.bottom - draggingItemRect.height / 2
-  ) {
-    return true
-  }
-  return false
-}
-
-const getDragElementPosition = (
-  downRect: DOMRect,
-  downAt: Point,
-  event: Pick<MouseEvent, "clientX" | "clientY">
-) => {
-  const top = `${downRect.top + event.clientY - downAt.y}px`
-  const left = `${downRect.left + event.clientX - downAt.x}px`
-
-  console.log({
-    top,
-    left,
-    downTop: downRect.top,
-    downLeft: downRect.left,
-    downAtLeft: downAt.x,
-    downAtTop: downAt.y,
-  })
-
-  return {
-    top,
-    left,
-  }
-}
-
-type DraggingOrderableListState = OrderableListState & {
-  downAt: Exclude<OrderableListState["downAt"], undefined>
-  downElement: Exclude<OrderableListState["downElement"], undefined>
-  downRect: Exclude<OrderableListState["downRect"], undefined>
-  isDragging: true
-  lastPoint: Exclude<OrderableListState["lastPoint"], undefined>
-}
-
-function assertDragging(
-  list: OrderableListState
-): asserts list is DraggingOrderableListState {
-  if (
-    !list.downAt ||
-    !list.downElement ||
-    !list.downRect ||
-    !list.isDragging ||
-    !list.lastPoint
-  ) {
-    throw new Error("Expected OrderableListState to be in dragging state")
-  }
 }
 
 type ItemProps = Pick<
@@ -262,7 +38,7 @@ type PlaceholderProps = Pick<
 export const useOrderableList = <ItemType extends ObjectWithId>(
   items: ItemType[]
 ) => {
-  const [list] = useState(() => new OrderableListState())
+  const [service] = useState(() => new DragService())
   const [placeholderIndex, setPlaceholderIndex] = useState(-1)
   const [draggingId, setDraggingId] = useState<string | undefined>()
   // const itemPropsCache = useRef<Record<string, ItemProps>>({})
@@ -272,7 +48,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
       console.log("memoizing items")
       const itemsToSplice = items
 
-      if (placeholderIndex < 0 || !list.downRect) return items
+      if (placeholderIndex < 0 || !service.downRect) return items
 
       // if (!placeholderRect) return items
 
@@ -292,7 +68,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     [items, placeholderIndex]
   )
 
-  list.resetElementList(itemsAndPlaceholders.length)
+  service.resetElementList(itemsAndPlaceholders.length)
 
   console.log({ placeholderIndex, items: itemsAndPlaceholders.length })
 
@@ -305,10 +81,13 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     if (isPlaceholder(item)) {
       const props: PlaceholderProps = {
         "data-rhah-placeholder": "true",
-        style: { width: list.downRect?.width, height: list.downRect?.height },
+        style: {
+          width: service.downRect?.width,
+          height: service.downRect?.height,
+        },
         ref: (element) => {
           if (!element) return
-          list.pushElement(element, index)
+          service.pushElement(element, index)
         },
       }
       return props
@@ -318,7 +97,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
 
     const style: React.CSSProperties =
       item.id === draggingId
-        ? { width: list.downRect?.width, height: list.downRect?.height }
+        ? { width: service.downRect?.width, height: service.downRect?.height }
         : {}
 
     // if (list.isDragging) {
@@ -327,20 +106,21 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
 
     const props: ItemProps = {
       onMouseMove: (event) => {
-        if (list.isDragging) return
-        if (!list.dragDidStartAt(item.id, event.clientX, event.clientY)) return
+        if (service.isDragging) return
+        if (!service.dragDidStartAt(item.id, event.clientX, event.clientY))
+          return
         console.log("element mouse move handler")
         startDrag(item.id, event)
         // event.preventDefault()
       },
       onMouseDown: (event) => {
-        list.onMouseDown(event)
+        service.onMouseDown(event)
       },
       "data-rhah-orderable-list-id": item.id,
       style,
       ref: (element) => {
         if (!element) return
-        list.pushElement(element, index)
+        service.pushElement(element, index)
       },
     }
 
@@ -350,26 +130,26 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   }
 
   const startDrag = (id: string, event: React.MouseEvent) => {
-    console.log("startDrag", list.downAt)
+    console.log("startDrag", service.downAt)
 
-    if (!list.downAt || !list.downRect) {
+    if (!service.downAt || !service.downRect) {
       throw new Error("Can't start drag because we don't know down position")
     }
 
     assertHTMLTarget(event)
-
-    const position = getDragElementPosition(list.downRect, list.downAt, event)
-
-    event.target.style.position = "absolute"
-    event.target.style.top = position.top
-    event.target.style.left = position.left
 
     const draggingItemIndex = items.findIndex((item) => item.id === id)
 
     setPlaceholderIndex(draggingItemIndex)
     console.log("set setPlaceholderIndex to", draggingItemIndex)
     setDraggingId(id)
-    list.listen(setPlaceholderIndex)
+    service.trackDrag(setPlaceholderIndex)
+
+    const position = service.getDragElementPosition(event)
+
+    event.target.style.position = "absolute"
+    event.target.style.top = position.top
+    event.target.style.left = position.left
   }
 
   const isDragging = (id: string) => {
