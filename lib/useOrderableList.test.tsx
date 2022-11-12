@@ -27,6 +27,7 @@ const mockDomRects = (elements: HTMLElement[]) => {
       width: 200,
       height: 20,
       top: 0,
+      left: 0,
       bottom: 20,
     })
   )
@@ -36,6 +37,7 @@ const mockDomRects = (elements: HTMLElement[]) => {
       width: 200,
       height: 20,
       top: 20,
+      left: 0,
       bottom: 40,
     })
   )
@@ -45,6 +47,7 @@ const mockDomRects = (elements: HTMLElement[]) => {
       width: 200,
       height: 20,
       top: 40,
+      left: 0,
       bottom: 60,
     })
   )
@@ -144,7 +147,8 @@ describe("useOrderableList", () => {
 
     // Should detatch the item and size it
     expect(dragElement.style.position).toBe("absolute")
-    expect(dragElement.style.transform).toBe("translate(10px, 10px)")
+    expect(dragElement.style.top).toBe("10px")
+    expect(dragElement.style.left).toBe("10px")
     expect(toNumber(dragElement.style.width)).toBeGreaterThan(0)
     expect(toNumber(dragElement.style.height)).toBeGreaterThan(0)
 
@@ -157,6 +161,13 @@ describe("useOrderableList", () => {
     expect(first.innerHTML).toEqual("@yvonnezlam")
     expect(toNumber(placeholder.style.width)).toBeGreaterThan(0)
     expect(toNumber(placeholder.style.height)).toBeGreaterThan(0)
+
+    // Should keep updating the position if we keep dragging
+    fireEvent.mouseMove(dragElement, {
+      clientX: 20,
+      clientY: 21,
+    })
+    expect(dragElement.style.top).toBe("11px")
 
     // Finish drag
     fireEvent.mouseUp(dragElement, {
@@ -275,5 +286,12 @@ describe("useOrderableList", () => {
 })
 
 const toNumber = (str: string) => {
-  return Number(str.replace(/[^0-9]/g, "") || undefined)
+  const numberPart = str.replace(/[^0-9]/g, "")
+  const num = Number(numberPart)
+  if (Number.isNaN(num)) {
+    throw new Error(
+      `string ${JSON.stringify(str)} does not resolve to a number`
+    )
+  }
+  return num
 }

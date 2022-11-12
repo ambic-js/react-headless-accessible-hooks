@@ -19,11 +19,21 @@ const Card = styled("div", {
   backgroundColor: "white",
   boxShadow: "0px 1px 5px 0px rgba(0,0,0,0.1)",
   border: "1px solid #ddd",
+  boxSizing: "border-box",
   paddingTop: 4,
   paddingBottom: 4,
   paddingLeft: 8,
   paddingRight: 8,
   marginBottom: 8,
+  cursor: "grab",
+
+  variants: {
+    isDragging: {
+      "true": {
+        zIndex: 2,
+      },
+    },
+  },
 })
 
 export const Basic = (
@@ -49,15 +59,23 @@ export const Basic = (
       }
 
       const Following = ({ users }: FollowingProps) => {
-        const { items, isPlaceholder, getItemProps } = useOrderableList(users)
+        const { items, isPlaceholder, getItemProps, isDragging } =
+          useOrderableList(users)
 
         return (
           <>
-            {items.map((item) =>
+            {items.map((item, index) =>
               isPlaceholder(item) ? (
-                <Placeholder key={item.key}></Placeholder>
+                <Placeholder
+                  key={item.key}
+                  {...getItemProps(index)}
+                ></Placeholder>
               ) : (
-                <Card key={item.id} {...getItemProps(item.id)}>
+                <Card
+                  key={item.id}
+                  {...getItemProps(index)}
+                  isDragging={isDragging(item.id)}
+                >
                   {item.handle}
                 </Card>
               )
