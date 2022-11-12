@@ -4,18 +4,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useOrderableList } from "~/index"
 import { mockDomRect } from "~/testHelpers"
 
-const ITEMS = [
+const USERS = [
   {
     id: "1",
-    text: "First one",
+    handle: "@yvonnezlam",
   },
   {
     id: "2",
-    text: "Second one",
+    handle: "@rsms",
   },
   {
     id: "3",
-    text: "Third one",
+    handle: "@pavelasamsonov",
   },
 ]
 
@@ -23,18 +23,18 @@ describe("useOrderableList", () => {
   const onClick = vi.fn()
 
   const List = () => {
-    const { getItemProps, items, isPlaceholder } = useOrderableList(ITEMS)
+    const { getItemProps, items, isPlaceholder } = useOrderableList(USERS)
 
     return (
       <ul>
-        {items.map((item) =>
+        {items.map((item, index) =>
           isPlaceholder(item) ? (
-            <li key={item.key} {...item.getProps()}>
+            <li key={item.key} {...getItemProps(index)}>
               Placeholder
             </li>
           ) : (
-            <li key={item.id} onClick={onClick} {...getItemProps(item.id)}>
-              {item.text}
+            <li key={item.id} onClick={onClick} {...getItemProps(index)}>
+              {item.handle}
             </li>
           )
         )}
@@ -59,7 +59,7 @@ describe("useOrderableList", () => {
 
     const items = getAllByRole("listitem")
 
-    expect(items[0].innerHTML).toEqual("First one")
+    expect(items[0].innerHTML).toEqual("@yvonnezlam")
     expect(items).toHaveLength(3)
   })
 
@@ -120,6 +120,10 @@ describe("useOrderableList", () => {
     expect(toNumber(first.style.height)).toBeGreaterThan(0)
 
     const items = getAllByRole("listitem")
+
+    expect(items).toHaveLength(4)
+    expect(items[1].innerHTML).toEqual("Placeholder")
+
     const placeholder = items[1]
 
     // Should insert the Placeholder into the list and size it
@@ -127,21 +131,117 @@ describe("useOrderableList", () => {
     expect(toNumber(placeholder.style.width)).toBeGreaterThan(0)
     expect(toNumber(placeholder.style.height)).toBeGreaterThan(0)
 
-    // when we mouse over the second one, expect the second one to move up
-    //  - if we keep moving down expect the second one to stay put
-    //  - if we move back up, expect the second one to jump back down
-
     fireEvent.mouseUp(first, {
       clientX: 20,
       clientY: 20,
     })
 
     expect(onClick).not.toHaveBeenCalled()
-
-    expect(items).toHaveLength(4)
-    expect(items[1].innerHTML).toEqual("Placeholder")
   })
+
+  it.only("should swap the placeholder in for items when we drag it halfway down into items", async () => {
+    console.log("starting render")
+    const { getAllByRole } = render(<List />)
+    console.log("render done")
+
+    const [yvonnezlam, rsms, pavelasamsonov] = getAllByRole("listitem")
+
+    vi.spyOn(yvonnezlam, "getBoundingClientRect").mockReturnValue(
+      mockDomRect({
+        width: 200,
+        height: 20,
+        top: 0,
+        bottom: 20,
+      })
+    )
+
+    vi.spyOn(rsms, "getBoundingClientRect").mockReturnValue(
+      mockDomRect({
+        width: 200,
+        height: 20,
+        top: 20,
+        bottom: 40,
+      })
+    )
+
+    vi.spyOn(pavelasamsonov, "getBoundingClientRect").mockReturnValue(
+      mockDomRect({
+        width: 200,
+        height: 20,
+        top: 40,
+        bottom: 60,
+      })
+    )
+
+    fireEvent.mouseDown(yvonnezlam, {
+      clientX: 10,
+      clientY: 5,
+    })
+
+    console.log("mouse down done")
+
+    // Start the drag
+    fireEvent.mouseMove(yvonnezlam, {
+      clientX: 10,
+      clientY: 10,
+    })
+
+    console.log("mouse move done")
+
+    const dragStartItems = getAllByRole("listitem")
+
+    // Expect placeholder to have been added
+    expect(dragStartItems).toHaveLength(4)
+
+    console.log("got items")
+
+    expect(dragStartItems[0].innerHTML).toBe("Placeholder")
+    expect(dragStartItems[1].innerHTML).toBe("@yvonnezlam")
+    expect(dragStartItems[2].innerHTML).toBe("@rsms")
+
+    console.log("second move starting")
+
+    // First drag down exactly 9 pixels
+    fireEvent.mouseMove(yvonnezlam, {
+      clientX: 10,
+      clientY: 14,
+      bubbles: true,
+    })
+
+    console.log("second mouse move done")
+
+    const itemsAfter9px = getAllByRole("listitem")
+
+    // Since we will only be 9 pixels (less than halfway) into the second item,
+    // expect that the order is still the same
+    expect(itemsAfter9px[0].innerHTML).toBe("@yvonnezlam")
+    expect(itemsAfter9px[1].innerHTML).toBe("Placeholder")
+    expect(itemsAfter9px[2].innerHTML).toBe("@rsms")
+
+    // Now drag two more pixels, so that the dragging item is 50% into the
+    // second item
+    fireEvent.mouseMove(yvonnezlam, {
+      clientX: 10,
+      clientY: 16,
+      bubbles: true,
+    })
+
+    console.log("last mouse move done")
+
+    const itemsPastHalfway = getAllByRole("listitem")
+
+    // Now we expect the second item to have moved up and the placeholder to be
+    // one position further down
+    expect(itemsPastHalfway[0].innerHTML).toBe("@yvonnezlam")
+    expect(itemsPastHalfway[1].innerHTML).toBe("@rsms")
+    expect(itemsPastHalfway[2].innerHTML).toBe("Placeholder")
+  })
+
+  it.todo(
+    "should swap the placeholder in for items when we drag it halfway UP into items"
+  )
 })
 
-const toNumber = (str: string) =>
-  Number(str.replace(/[^0-9]/g, "") || undefined)
+const toNumber = (str: string) => {
+  return Number(str.replace(/[^0-9]/g, "") || undefined)
+}
