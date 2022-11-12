@@ -2,6 +2,7 @@ import { render, fireEvent, cleanup } from "@testing-library/react"
 import React from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useOrderableList } from "~/index"
+import { mockDomRect } from "~/testHelpers"
 
 const ITEMS = [
   {
@@ -28,7 +29,9 @@ describe("useOrderableList", () => {
       <ul>
         {items.map((item) =>
           isPlaceholder(item) ? (
-            <li key={item.key}>Placeholder</li>
+            <li key={item.key} {...item.getProps()}>
+              Placeholder
+            </li>
           ) : (
             <li key={item.id} onClick={onClick} {...getItemProps(item.id)}>
               {item.text}
@@ -93,6 +96,13 @@ describe("useOrderableList", () => {
 
     const [first] = getAllByRole("listitem")
 
+    vi.spyOn(first, "getBoundingClientRect").mockReturnValue(
+      mockDomRect({
+        width: 200,
+        height: 20,
+      })
+    )
+
     fireEvent.mouseDown(first, {
       clientX: 10,
       clientY: 10,
@@ -103,7 +113,23 @@ describe("useOrderableList", () => {
       clientY: 20,
     })
 
+    // Should detatch the item
     expect(first.style.position).toBe("absolute")
+    expect(first.style.transform).toBe("translate(10px, 10px)")
+
+    const items = getAllByRole("listitem")
+    const placeholder = items[1]
+
+    // Should insert the Placeholder into the list and size it
+    expect(placeholder.innerHTML).toBe("Placeholder")
+    expect(toNumber(placeholder.style.width)).toBeGreaterThan(0)
+    expect(toNumber(placeholder.style.height)).toBeGreaterThan(0)
+
+    // expect placeholder to have same height and width as element
+    // expect element to still have same width and height
+    // when we mouse over the second one, expect the second one to move up
+    //  - if we keep moving down expect the second one to stay put
+    //  - if we move back up, expect the second one to jump back down
 
     fireEvent.mouseUp(first, {
       clientX: 20,
@@ -112,9 +138,9 @@ describe("useOrderableList", () => {
 
     expect(onClick).not.toHaveBeenCalled()
 
-    const items = getAllByRole("listitem")
-
     expect(items).toHaveLength(4)
     expect(items[1].innerHTML).toEqual("Placeholder")
   })
 })
+
+const toNumber = (str: string) => Number(str.replace(/[^0-9]/g, ""))

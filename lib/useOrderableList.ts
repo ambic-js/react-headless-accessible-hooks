@@ -1,6 +1,7 @@
 import type React from "react"
-import { useState, useRef, useMemo } from "react"
+import { useState, useRef, useMemo, StyleHTMLAttributes } from "react"
 import short from "short-uuid"
+import { assertHTMLTarget } from "~/helpers"
 
 type ObjectWithId = {
   id: string
@@ -10,6 +11,9 @@ type Placeholder = {
   __typename: "Placeholder"
   // rect: PlaceholderRect
   key: string
+  getProps: () => {
+    style: React.CSSProperties
+  }
 }
 
 const isPlaceholder = (
@@ -21,11 +25,15 @@ const isPlaceholder = (
 class OrderableListState {
   downId: string | undefined
   downAt: { x: number; y: number } | undefined
+  draggingSize: { width: number; height: number } | undefined
   draggingId: string | undefined
 
   setDown(id: string, event: React.MouseEvent) {
     this.downId = id
     this.downAt = { x: event.clientX, y: event.clientY }
+    assertHTMLTarget(event)
+    const { width, height } = event.target.getBoundingClientRect()
+    this.draggingSize = { width, height }
   }
 
   isDrag(id: string, event: React.MouseEvent) {
@@ -62,15 +70,19 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     function insertPlaceholders() {
       const itemsToSplice = items
 
-      if (placeholderIndex < 0) return items
+      if (placeholderIndex < 0 || !list.draggingSize) return items
 
       // if (!placeholderRect) return items
 
       const before = itemsToSplice.slice(0, placeholderIndex)
       const after = itemsToSplice.slice(placeholderIndex)
+
       const placeholder: Placeholder = {
         __typename: "Placeholder",
         key: short.generate(),
+        getProps: () => ({
+          style: { ...list.draggingSize },
+        }),
         // rect: placeholderRect,
       }
 
@@ -84,8 +96,6 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   const getItemProps = (id: string) => {
     // if (itemPropsCache.current[id]) return itemPropsCache[id]
 
-    const style = id === draggingId ? ({ position: "absolute" } as const) : {}
-
     const props: ItemProps = {
       onMouseDown: (event: React.MouseEvent) => {
         list.setDown(id, event)
@@ -94,9 +104,8 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
       // },
       onMouseMove: (event: React.MouseEvent) => {
         if (!list.isDrag(id, event)) return
-        startDrag(id)
+        startDrag(id, event)
       },
-      style,
     }
 
     // itemPropsCache.current[id] = props
@@ -104,8 +113,19 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     return props
   }
 
-  const startDrag = (id: string) => {
+  const startDrag = (id: string, event: React.MouseEvent) => {
+    if (!list.downAt) return
+
     const draggingItemIndex = items.findIndex((item) => item.id === id)
+
+    const dx = event.clientX - list.downAt.x
+    const dy = event.clientY - list.downAt.y
+
+    assertHTMLTarget(event)
+
+    event.target.style.transform = `translate(${dx}px, ${dy}px)`
+    event.target.style.position = "absolute"
+
     setPlaceholderIndex(draggingItemIndex + 1)
     // list.startDrag()
     setDraggingId(id)

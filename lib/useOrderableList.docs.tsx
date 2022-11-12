@@ -1,5 +1,5 @@
+import { styled } from "@stitches/react"
 import { Doc, Demo } from "codedocs"
-import { useState } from "react"
 import { useOrderableList } from "./useOrderableList"
 
 export default (
@@ -8,35 +8,65 @@ export default (
   </Doc>
 )
 
+const Placeholder = styled("div", {
+  borderRadius: 6,
+  backgroundColor: "#eee",
+  marginBottom: 8,
+})
+
+const Card = styled("div", {
+  borderRadius: 6,
+  backgroundColor: "white",
+  boxShadow: "0px 1px 5px 0px rgba(0,0,0,0.1)",
+  border: "1px solid #ddd",
+  paddingTop: 4,
+  paddingBottom: 4,
+  paddingLeft: 8,
+  paddingRight: 8,
+  marginBottom: 8,
+})
+
 export const Basic = (
   <Demo
-    render={() => {
-      const [_items] = useState([
+    generate={() => {
+      const USERS = [
         {
           id: "1",
-          text: "First one",
+          handle: "@yvonnezlam",
         },
         {
           id: "2",
-          text: "Second one",
+          handle: "@rsms",
         },
         {
           id: "3",
-          text: "Third one",
+          handle: "@PavelASamsonov",
         },
-      ])
+      ]
 
-      const { items, isPlaceholder, getItemProps } = useOrderableList(_items)
+      type FollowingProps = {
+        users: { id: string; handle: string }[]
+      }
 
-      return items.map((item) =>
-        isPlaceholder(item) ? (
-          <div key={item.key}>Placeholder</div>
-        ) : (
-          <div key={item.id} {...getItemProps(item.id)}>
-            {item.text}
-          </div>
+      const Following = ({ users }: FollowingProps) => {
+        const { items, isPlaceholder, getItemProps } = useOrderableList(users)
+
+        return (
+          <>
+            {items.map((item) =>
+              isPlaceholder(item) ? (
+                <Placeholder key={item.key}></Placeholder>
+              ) : (
+                <Card key={item.id} {...getItemProps(item.id)}>
+                  {item.handle}
+                </Card>
+              )
+            )}
+          </>
         )
-      )
+      }
+
+      return <Following users={USERS} />
     }}
   />
 )
