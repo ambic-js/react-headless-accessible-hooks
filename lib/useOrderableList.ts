@@ -96,6 +96,8 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   const getItemProps = (id: string) => {
     // if (itemPropsCache.current[id]) return itemPropsCache[id]
 
+    const style = id === draggingId ? { ...list.draggingSize } : undefined
+
     const props: ItemProps = {
       onMouseDown: (event: React.MouseEvent) => {
         list.setDown(id, event)
@@ -106,6 +108,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
         if (!list.isDrag(id, event)) return
         startDrag(id, event)
       },
+      style,
     }
 
     // itemPropsCache.current[id] = props

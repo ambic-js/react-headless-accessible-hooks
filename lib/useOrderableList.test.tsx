@@ -113,9 +113,11 @@ describe("useOrderableList", () => {
       clientY: 20,
     })
 
-    // Should detatch the item
+    // Should detatch the item and size it
     expect(first.style.position).toBe("absolute")
     expect(first.style.transform).toBe("translate(10px, 10px)")
+    expect(toNumber(first.style.width)).toBeGreaterThan(0)
+    expect(toNumber(first.style.height)).toBeGreaterThan(0)
 
     const items = getAllByRole("listitem")
     const placeholder = items[1]
@@ -125,8 +127,6 @@ describe("useOrderableList", () => {
     expect(toNumber(placeholder.style.width)).toBeGreaterThan(0)
     expect(toNumber(placeholder.style.height)).toBeGreaterThan(0)
 
-    // expect placeholder to have same height and width as element
-    // expect element to still have same width and height
     // when we mouse over the second one, expect the second one to move up
     //  - if we keep moving down expect the second one to stay put
     //  - if we move back up, expect the second one to jump back down
@@ -143,4 +143,5 @@ describe("useOrderableList", () => {
   })
 })
 
-const toNumber = (str: string) => Number(str.replace(/[^0-9]/g, ""))
+const toNumber = (str: string) =>
+  Number(str.replace(/[^0-9]/g, "") || undefined)
