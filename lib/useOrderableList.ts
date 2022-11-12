@@ -1,5 +1,5 @@
 import type React from "react"
-import { useState, useRef, useMemo, StyleHTMLAttributes } from "react"
+import { useState, useMemo } from "react"
 import short from "short-uuid"
 import { assertHTMLTarget } from "~/helpers"
 
@@ -99,12 +99,13 @@ class OrderableListState {
 
       this.lastPoint = { x: event.clientY, y: event.clientY }
 
-      let lastElementSwappableElementIndex = -1
+      let swappableElementIndex = -1
 
-      for (let i = 0; i <= this.maxElementIndex; i++) {
-        const element = this.elements[i]
-        const targetRect = this.getRect(element)
-        if (direction === "down") {
+      if (direction === "down") {
+        for (let i = 0; i <= this.maxElementIndex; i++) {
+          const element = this.elements[i]
+          if (element.dataset.rhahPlaceholder) continue
+          const targetRect = this.getRect(element)
           const mightSwap = intrudesDown(
             dy,
             this.getRect(this.downElement),
@@ -112,20 +113,32 @@ class OrderableListState {
           )
 
           if (mightSwap) {
-            lastElementSwappableElementIndex = i
+            swappableElementIndex = i
           } else {
             break
           }
-        } else {
-          throw new Error("Don't support dragging up yet")
+        }
+      } else {
+        for (let i = this.maxElementIndex; i >= 0; i--) {
+          const element = this.elements[i]
+          if (element.dataset.rhahPlaceholder) continue
+          const targetRect = this.getRect(element)
+          const mightSwap = intrudesUp(
+            dy,
+            this.getRect(this.downElement),
+            targetRect
+          )
+
+          if (mightSwap) {
+            swappableElementIndex = i
+          } else {
+            break
+          }
         }
       }
 
-      console.log(
-        "setting placeholderIndex in list to",
-        lastElementSwappableElementIndex
-      )
-      setPlaceholderIndex(lastElementSwappableElementIndex)
+      console.log("setting placeholderIndex in list to", swappableElementIndex)
+      setPlaceholderIndex(swappableElementIndex)
     })
   }
 }
@@ -138,6 +151,20 @@ const intrudesDown = (
   if (
     draggingItemRect.bottom + dy >
     targetItemRect.top + draggingItemRect.height / 2
+  ) {
+    return true
+  }
+  return false
+}
+
+const intrudesUp = (
+  dy: number,
+  draggingItemRect: DOMRect,
+  targetItemRect: DOMRect
+) => {
+  if (
+    draggingItemRect.top + dy <
+    targetItemRect.bottom - draggingItemRect.height / 2
   ) {
     return true
   }

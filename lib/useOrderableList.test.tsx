@@ -19,6 +19,37 @@ const USERS = [
   },
 ]
 
+const mockDomRects = (elements: HTMLElement[]) => {
+  const [yvonnezlam, rsms, pavelasamsonov] = elements
+
+  vi.spyOn(yvonnezlam, "getBoundingClientRect").mockReturnValue(
+    mockDomRect({
+      width: 200,
+      height: 20,
+      top: 0,
+      bottom: 20,
+    })
+  )
+
+  vi.spyOn(rsms, "getBoundingClientRect").mockReturnValue(
+    mockDomRect({
+      width: 200,
+      height: 20,
+      top: 20,
+      bottom: 40,
+    })
+  )
+
+  vi.spyOn(pavelasamsonov, "getBoundingClientRect").mockReturnValue(
+    mockDomRect({
+      width: 200,
+      height: 20,
+      top: 40,
+      bottom: 60,
+    })
+  )
+}
+
 describe("useOrderableList", () => {
   const onClick = vi.fn()
 
@@ -94,44 +125,41 @@ describe("useOrderableList", () => {
   it("should pop the element out and add a placeholder if we drag", () => {
     const { getAllByRole } = render(<List />)
 
-    const [first] = getAllByRole("listitem")
+    const items = getAllByRole("listitem")
 
-    vi.spyOn(first, "getBoundingClientRect").mockReturnValue(
-      mockDomRect({
-        width: 200,
-        height: 20,
-      })
-    )
+    mockDomRects(items)
 
-    fireEvent.mouseDown(first, {
+    const [yvonnezlam] = items
+    const dragElement = yvonnezlam
+
+    fireEvent.mouseDown(dragElement, {
       clientX: 10,
       clientY: 10,
     })
 
-    fireEvent.mouseMove(first, {
+    fireEvent.mouseMove(dragElement, {
       clientX: 20,
       clientY: 20,
     })
 
     // Should detatch the item and size it
-    expect(first.style.position).toBe("absolute")
-    expect(first.style.transform).toBe("translate(10px, 10px)")
-    expect(toNumber(first.style.width)).toBeGreaterThan(0)
-    expect(toNumber(first.style.height)).toBeGreaterThan(0)
+    expect(dragElement.style.position).toBe("absolute")
+    expect(dragElement.style.transform).toBe("translate(10px, 10px)")
+    expect(toNumber(dragElement.style.width)).toBeGreaterThan(0)
+    expect(toNumber(dragElement.style.height)).toBeGreaterThan(0)
 
-    const items = getAllByRole("listitem")
-
-    expect(items).toHaveLength(4)
-    expect(items[1].innerHTML).toEqual("Placeholder")
-
-    const placeholder = items[1]
+    const dragStartItems = getAllByRole("listitem")
 
     // Should insert the Placeholder into the list and size it
-    expect(placeholder.innerHTML).toBe("Placeholder")
+    expect(dragStartItems).toHaveLength(4)
+    const [placeholder, first] = dragStartItems
+    expect(placeholder.innerHTML).toEqual("Placeholder")
+    expect(first.innerHTML).toEqual("@yvonnezlam")
     expect(toNumber(placeholder.style.width)).toBeGreaterThan(0)
     expect(toNumber(placeholder.style.height)).toBeGreaterThan(0)
 
-    fireEvent.mouseUp(first, {
+    // Finish drag
+    fireEvent.mouseUp(dragElement, {
       clientX: 20,
       clientY: 20,
     })
@@ -139,76 +167,41 @@ describe("useOrderableList", () => {
     expect(onClick).not.toHaveBeenCalled()
   })
 
-  it.only("should swap the placeholder in for items when we drag it halfway down into items", async () => {
-    console.log("starting render")
+  it("should swap the placeholder in for items when we drag it halfway down into items", () => {
     const { getAllByRole } = render(<List />)
-    console.log("render done")
 
-    const [yvonnezlam, rsms, pavelasamsonov] = getAllByRole("listitem")
+    const items = getAllByRole("listitem")
 
-    vi.spyOn(yvonnezlam, "getBoundingClientRect").mockReturnValue(
-      mockDomRect({
-        width: 200,
-        height: 20,
-        top: 0,
-        bottom: 20,
-      })
-    )
+    mockDomRects(items)
 
-    vi.spyOn(rsms, "getBoundingClientRect").mockReturnValue(
-      mockDomRect({
-        width: 200,
-        height: 20,
-        top: 20,
-        bottom: 40,
-      })
-    )
+    const [yvonnezlam] = items
+    const dragElement = yvonnezlam
 
-    vi.spyOn(pavelasamsonov, "getBoundingClientRect").mockReturnValue(
-      mockDomRect({
-        width: 200,
-        height: 20,
-        top: 40,
-        bottom: 60,
-      })
-    )
-
-    fireEvent.mouseDown(yvonnezlam, {
+    fireEvent.mouseDown(dragElement, {
       clientX: 10,
       clientY: 5,
     })
 
-    console.log("mouse down done")
-
     // Start the drag
-    fireEvent.mouseMove(yvonnezlam, {
+    fireEvent.mouseMove(dragElement, {
       clientX: 10,
       clientY: 10,
     })
-
-    console.log("mouse move done")
 
     const dragStartItems = getAllByRole("listitem")
 
     // Expect placeholder to have been added
     expect(dragStartItems).toHaveLength(4)
-
-    console.log("got items")
-
     expect(dragStartItems[0].innerHTML).toBe("Placeholder")
     expect(dragStartItems[1].innerHTML).toBe("@yvonnezlam")
     expect(dragStartItems[2].innerHTML).toBe("@rsms")
 
-    console.log("second move starting")
-
     // First drag down exactly 9 pixels
-    fireEvent.mouseMove(yvonnezlam, {
+    fireEvent.mouseMove(dragElement, {
       clientX: 10,
       clientY: 14,
       bubbles: true,
     })
-
-    console.log("second mouse move done")
 
     const itemsAfter9px = getAllByRole("listitem")
 
@@ -220,13 +213,11 @@ describe("useOrderableList", () => {
 
     // Now drag two more pixels, so that the dragging item is 50% into the
     // second item
-    fireEvent.mouseMove(yvonnezlam, {
+    fireEvent.mouseMove(dragElement, {
       clientX: 10,
       clientY: 16,
       bubbles: true,
     })
-
-    console.log("last mouse move done")
 
     const itemsPastHalfway = getAllByRole("listitem")
 
@@ -237,9 +228,50 @@ describe("useOrderableList", () => {
     expect(itemsPastHalfway[2].innerHTML).toBe("Placeholder")
   })
 
-  it.todo(
-    "should swap the placeholder in for items when we drag it halfway UP into items"
-  )
+  it("should swap the placeholder in for items when we drag it halfway UP into items", () => {
+    const { getAllByRole } = render(<List />)
+
+    const items = getAllByRole("listitem")
+
+    mockDomRects(items)
+
+    const [_, rsms] = items
+    const dragElement = rsms
+
+    // Start the drag
+    fireEvent.mouseDown(dragElement, {
+      clientX: 10,
+      clientY: 35,
+    })
+
+    fireEvent.mouseMove(dragElement, {
+      clientX: 10,
+      clientY: 30,
+    })
+
+    const dragStartItems = getAllByRole("listitem")
+
+    // Expect placeholder to have been added
+    expect(dragStartItems).toHaveLength(4)
+    expect(dragStartItems[0].innerHTML).toBe("@yvonnezlam")
+    expect(dragStartItems[1].innerHTML).toBe("Placeholder")
+    expect(dragStartItems[2].innerHTML).toBe("@rsms")
+
+    // Now drag past the halfway point
+    fireEvent.mouseMove(dragElement, {
+      clientX: 10,
+      clientY: 24,
+      bubbles: true,
+    })
+
+    const itemsPastHalfway = getAllByRole("listitem")
+
+    // Expect the placeholder and first element to have been swapped
+    expect(itemsPastHalfway).toHaveLength(4)
+    expect(itemsPastHalfway[0].innerHTML).toBe("Placeholder")
+    expect(itemsPastHalfway[1].innerHTML).toBe("@yvonnezlam")
+    expect(itemsPastHalfway[2].innerHTML).toBe("@rsms")
+  })
 })
 
 const toNumber = (str: string) => {
