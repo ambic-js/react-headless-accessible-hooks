@@ -1,5 +1,6 @@
 import { render, fireEvent, cleanup } from "@testing-library/react"
-import React from "react"
+import { sortBy } from "lodash"
+import React, { useState } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useOrderableList } from "~/index"
 import { mockDomRect } from "~/testHelpers"
@@ -56,8 +57,22 @@ const mockDomRects = (elements: HTMLElement[]) => {
 describe("useOrderableList", () => {
   const onClick = vi.fn()
 
-  const List = () => {
-    const { getItemProps, items, isPlaceholder } = useOrderableList(USERS)
+  type ListProps = {
+    onOrderChange?: (ids: string[]) => void
+  }
+
+  const List = ({ onOrderChange }: ListProps) => {
+    const [users, setUsers] = useState(USERS)
+
+    const handleOrderChange = (sortedIds: string[]) => {
+      const sortedUsers = sortBy(USERS, (user) => sortedIds.indexOf(user.id))
+      setUsers(sortedUsers)
+      onOrderChange?.(sortedIds)
+    }
+
+    const { getItemProps, items, isPlaceholder } = useOrderableList(users, {
+      onOrderChange: handleOrderChange,
+    })
 
     return (
       <ul>
@@ -156,7 +171,9 @@ describe("useOrderableList", () => {
 
     // Should insert the Placeholder into the list and size it
     expect(dragStartItems).toHaveLength(4)
-    const [placeholder, first] = dragStartItems
+
+    const [first, placeholder] = dragStartItems
+
     expect(placeholder.innerHTML).toEqual("Placeholder")
     expect(first.innerHTML).toEqual("@yvonnezlam")
     expect(toNumber(placeholder.style.width)).toBeGreaterThan(0)
@@ -203,8 +220,8 @@ describe("useOrderableList", () => {
 
     // Expect placeholder to have been added
     expect(dragStartItems).toHaveLength(4)
-    expect(dragStartItems[0].innerHTML).toBe("Placeholder")
-    expect(dragStartItems[1].innerHTML).toBe("@yvonnezlam")
+    expect(dragStartItems[0].innerHTML).toBe("@yvonnezlam")
+    expect(dragStartItems[1].innerHTML).toBe("Placeholder")
     expect(dragStartItems[2].innerHTML).toBe("@rsms")
 
     // First drag down exactly 9 pixels
@@ -282,6 +299,48 @@ describe("useOrderableList", () => {
     expect(itemsPastHalfway[0].innerHTML).toBe("Placeholder")
     expect(itemsPastHalfway[1].innerHTML).toBe("@yvonnezlam")
     expect(itemsPastHalfway[2].innerHTML).toBe("@rsms")
+  })
+
+  it("should drop the dragging item and fire an onOrder event on mouse up", () => {
+    const onOrderChange = vi.fn()
+    const { getAllByRole } = render(<List onOrderChange={onOrderChange} />)
+
+    const items = getAllByRole("listitem")
+
+    mockDomRects(items)
+
+    const [yvonnezlam] = items
+    const dragElement = yvonnezlam
+
+    fireEvent.mouseDown(dragElement, {
+      clientX: 10,
+      clientY: 5,
+    })
+
+    fireEvent.mouseMove(dragElement, {
+      clientX: 10,
+      clientY: 16,
+    })
+
+    expect(dragElement.style.position).toBe("absolute")
+
+    fireEvent.mouseUp(dragElement, {
+      clientX: 10,
+      clientY: 16,
+    })
+
+    const itemsAfterDrop = getAllByRole("listitem")
+
+    expect(itemsAfterDrop).toHaveLength(3)
+    expect(itemsAfterDrop[0].innerHTML).toBe("@rsms")
+    expect(itemsAfterDrop[1].innerHTML).toBe("@yvonnezlam")
+    expect(itemsAfterDrop[2].innerHTML).toBe("@pavelasamsonov")
+
+    expect(dragElement.style.position).not.toBe("absolute")
+    expect(dragElement.style.left).toBe("")
+    expect(dragElement.style.top).toBe("")
+
+    expect(onOrderChange).toHaveBeenCalledWith(["2", "1", "3"])
   })
 })
 

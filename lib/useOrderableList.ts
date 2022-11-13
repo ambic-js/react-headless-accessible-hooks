@@ -1,3 +1,4 @@
+import without from "lodash/without"
 import type React from "react"
 import { useState, useMemo, useEffect } from "react"
 import short from "short-uuid"
@@ -32,16 +33,35 @@ type PlaceholderProps = Pick<
   "style"
 > & {
   "data-rhah-placeholder": "true"
-  ref: (element: HTMLElement | null) => void
+}
+
+type UseOrderableListOptions = {
+  onOrderChange?: (ids: string[]) => void
 }
 
 /**
  * Hook which gives you some functions to make a list of elements re-orderable via drag and drop.
  */
 export const useOrderableList = <ItemType extends ObjectWithId>(
-  items: ItemType[]
+  items: ItemType[],
+  { onOrderChange }: UseOrderableListOptions = {}
 ) => {
-  const [service] = useState(() => new DragService())
+  const [service] = useState(
+    () =>
+      new DragService({
+        onDragEnd: (id, index) => {
+          const oldIds = items.map((item) => item.id)
+          const before = without(oldIds.slice(0, index), id)
+          const after = without(oldIds.slice(index), id)
+          const newIds = [...before, id, ...after]
+
+          setPlaceholderIndex(-1)
+          setDraggingId(undefined)
+          onOrderChange?.(newIds)
+        },
+      })
+  )
+
   const [placeholderIndex, setPlaceholderIndex] = useState(-1)
   const [draggingId, setDraggingId] = useState<string | undefined>()
 
@@ -75,7 +95,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     [items, placeholderIndex]
   )
 
-  service.resetElementList(itemsAndPlaceholders.length)
+  service.resetElementList(items.length)
 
   const getItemProps = (index: number) => {
     const item = itemsAndPlaceholders[index]
@@ -89,10 +109,6 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
         style: {
           width: service.downRect?.width,
           height: service.downRect?.height,
-        },
-        ref: (element) => {
-          if (!element) return
-          service.pushElement(element, index)
         },
       }
       return props
@@ -108,6 +124,10 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     // if (list.isDragging) {
     //   style.pointerEvents = "none"
     // }
+
+    const indexIgnoringPlaceholders = itemsAndPlaceholders
+      .slice(0, index)
+      .filter((item) => !isPlaceholder(item)).length
 
     const props: ItemProps = {
       onMouseMove: (event) => {
@@ -125,7 +145,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
       style,
       ref: (element) => {
         if (!element) return
-        service.pushElement(element, index)
+        service.pushElement(element, indexIgnoringPlaceholders)
       },
     }
 
@@ -143,17 +163,13 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
 
     const draggingItemIndex = items.findIndex((item) => item.id === id)
 
-    setPlaceholderIndex(draggingItemIndex)
     setDraggingId(id)
-    service.trackDrag(setPlaceholderIndex)
 
-    // Code below needs draggingId to have been set because DragService needs to
-    // be in dragging state:
-    const position = service.getDragElementPosition(event)
-
-    event.target.style.position = "absolute"
-    event.target.style.top = position.top
-    event.target.style.left = position.left
+    service.startTracking(id, draggingItemIndex, event, {
+      onDragTo: (index: number) => {
+        setPlaceholderIndex(index)
+      },
+    })
   }
 
   const isDragging = (id: string) => {

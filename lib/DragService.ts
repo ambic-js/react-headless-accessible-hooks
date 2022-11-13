@@ -2,6 +2,10 @@ import { assertHTMLTarget } from "~/helpers"
 
 type Point = { x: number; y: number }
 
+type DragServiceOptions = {
+  onDragEnd: (id: string, index: number) => void
+}
+
 /**
  * The DragService keeps track of all of the data that doesn't need to directly
  * affect React state.
@@ -26,8 +30,16 @@ export class DragService {
   itemRectCache: Record<string, DOMRect> = {}
   elements: HTMLElement[] = []
   maxElementIndex = 0
-  handleMove: ((event: MouseEvent) => void) | undefined
+  handleMove:
+    | ((event: Pick<MouseEvent, "clientX" | "clientY">) => void)
+    | undefined
   handleUp: (() => void) | undefined
+  onDragEnd: (id: string, index: number) => void
+  placeholderIndex: number | undefined
+
+  constructor({ onDragEnd }: DragServiceOptions) {
+    this.onDragEnd = onDragEnd
+  }
 
   onMouseDown(event: React.MouseEvent) {
     assertHTMLTarget(event)
@@ -105,7 +117,12 @@ export class DragService {
     }
   }
 
-  trackDrag(setPlaceholderIndex: (index: number) => void) {
+  startTracking(
+    id: string,
+    index: number,
+    event: Pick<MouseEvent, "clientX" | "clientY">,
+    { onDragTo }: { onDragTo: (index: number) => void }
+  ) {
     if (this.handleMove || this.handleUp) {
       throw new Error(
         "Trying to track drag, but move/up handlers already exist"
@@ -113,23 +130,54 @@ export class DragService {
     }
 
     this.isDragging = true
+    this.draggingId = id
 
-    assertDragging(this, "trackDrag")
+    assertDragging(this, "startTracking")
 
     // This handler is defined outside the class 1) because it's a pretty big
     // function, and 2) because we can then curry it and keep the reference to
     // the curry so it can be later removed from the window's event listeners
     // when the drag stops.
-    this.handleMove = getMouseMoveHandler(this, setPlaceholderIndex)
+    this.handleMove = getMouseMoveHandler(this, onDragTo)
+
+    // This would've been a mousemove event so we should handle that so we
+    // report back the correct placeholderIndex to the hook
+    this.handleMove(event)
 
     this.handleUp = () => {
-      if (!this.handleMove || !this.handleUp) {
+      if (!this.handleMove) {
         throw new Error(
-          "Tried to unsubscribe from mousemove and mouseup but handlers were missing"
+          "Tried to unsubscribe from mousemove and mouseup but handleMove is missing"
         )
       }
+
+      if (!this.handleUp) {
+        throw new Error(
+          "Tried to unsubscribe from mousemove and mouseup but handleUp is missing"
+        )
+      }
+
+      if (!this.downElement) {
+        throw new Error("Got mouseUp event but downElement is undefined?")
+      }
+
+      if (!this.draggingId) {
+        throw new Error("Got mouseUp event but draggingId is undefined?")
+      }
+
+      if (this.placeholderIndex === undefined) {
+        throw new Error("Got mouseUp event but placeholderIndex is undefined?")
+      }
+
       window.removeEventListener("mousemove", this.handleMove)
       window.removeEventListener("mouseup", this.handleUp)
+
+      const id = this.draggingId
+      const index = this.placeholderIndex
+
+      this.downElement.style.position = ""
+      this.downElement.style.top = ""
+      this.downElement.style.left = ""
 
       this.handleMove = undefined
       this.handleUp = undefined
@@ -140,6 +188,8 @@ export class DragService {
       this.draggingId = undefined
       this.downElement = undefined
       this.downRect = undefined
+
+      this.onDragEnd(id, index)
     }
 
     window.addEventListener("mousemove", this.handleMove)
@@ -157,19 +207,20 @@ export class DragService {
 }
 
 const getMouseMoveHandler =
-  (list: DragService, setPlaceholderIndex: (index: number) => void) =>
-  (event: MouseEvent) => {
+  (list: DragService, onDragTo: (index: number) => void) =>
+  (event: Pick<MouseEvent, "clientX" | "clientY">) => {
     assertDragging(list, "getMouseMoveHandler")
 
     const dy = event.clientY - list.downAt.y
     const direction = dy > 0 ? "down" : "up"
     const position = list.getDragElementPosition(event)
 
+    list.downElement.style.position = "absolute"
     list.downElement.style.top = position.top
     list.downElement.style.left = position.left
     list.lastPoint = { x: event.clientY, y: event.clientY }
 
-    let swappableElementIndex = -1
+    let placeholderIndex = -1
 
     if (direction === "down") {
       for (let i = 0; i <= list.maxElementIndex; i++) {
@@ -186,7 +237,7 @@ const getMouseMoveHandler =
         )
 
         if (mightSwap) {
-          swappableElementIndex = i
+          placeholderIndex = i + 1
         } else {
           break
         }
@@ -194,19 +245,25 @@ const getMouseMoveHandler =
     } else {
       for (let i = list.maxElementIndex; i >= 0; i--) {
         const element = list.elements[i]
+        if (!element) {
+          throw new Error(`No element at index ${i}`)
+        }
         if (element.dataset.rhahPlaceholder) continue
         const targetRect = list.getRect(element)
         const mightSwap = intrudesUp(dy, list.downRect, targetRect)
 
         if (mightSwap) {
-          swappableElementIndex = i
+          placeholderIndex = i
         } else {
           break
         }
       }
     }
 
-    setPlaceholderIndex(swappableElementIndex)
+    if (list.placeholderIndex !== placeholderIndex) {
+      list.placeholderIndex = placeholderIndex
+      onDragTo(placeholderIndex)
+    }
   }
 
 /**
