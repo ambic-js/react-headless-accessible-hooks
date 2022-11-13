@@ -11,7 +11,7 @@ type ObjectWithId = {
 
 type Placeholder = {
   __typename: "Placeholder"
-  key: string
+  id: string
 }
 
 const isPlaceholder = (
@@ -84,7 +84,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
 
       const placeholder: Placeholder = {
         __typename: "Placeholder",
-        key: short.generate(),
+        id: short.generate(),
         // rect: placeholderRect,
       }
 
@@ -155,17 +155,11 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   }
 
   const startDrag = (id: string, event: React.MouseEvent) => {
-    if (!service.downAt || !service.downRect) {
-      throw new Error("Can't start drag because we don't know down position")
-    }
-
     assertHTMLTarget(event)
-
-    const draggingItemIndex = items.findIndex((item) => item.id === id)
 
     setDraggingId(id)
 
-    service.startTracking(id, draggingItemIndex, event, {
+    service.startTracking(id, event, {
       onDragTo: (index: number) => {
         setPlaceholderIndex(index)
       },

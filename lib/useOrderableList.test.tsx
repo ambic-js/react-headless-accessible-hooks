@@ -78,7 +78,7 @@ describe("useOrderableList", () => {
       <ul>
         {items.map((item, index) =>
           isPlaceholder(item) ? (
-            <li key={item.key} {...getItemProps(index)}>
+            <li key={item.id} {...getItemProps(index)}>
               Placeholder
             </li>
           ) : (

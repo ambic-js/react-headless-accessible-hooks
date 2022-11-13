@@ -69,6 +69,7 @@ export const Basic = (
               const sortedUsers = sortBy(initialUsers, (user) =>
                 sortedIds.indexOf(user.id)
               )
+              console.log(sortedUsers.map(({ handle }) => handle))
               setUsers(sortedUsers)
             },
           })
@@ -77,9 +78,16 @@ export const Basic = (
           <>
             {items.map((item, index) =>
               isPlaceholder(item) ? (
-                <Placeholder {...getItemProps(index)}></Placeholder>
+                <Placeholder
+                  key={item.id}
+                  {...getItemProps(index)}
+                ></Placeholder>
               ) : (
-                <Card {...getItemProps(index)} isDragging={isDragging(item.id)}>
+                <Card
+                  key={item.id}
+                  {...getItemProps(index)}
+                  isDragging={isDragging(item.id)}
+                >
                   {item.handle}
                 </Card>
               )

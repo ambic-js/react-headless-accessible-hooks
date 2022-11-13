@@ -94,7 +94,7 @@ export class DragService {
 
     // FIXME: If the element changes size ever, this cache will be stale. So
     // we'll need to add ResizeObservers at some point to invalidate the cache.
-    if (this.itemRectCache[id]) return this.itemRectCache[id]
+    // if (this.itemRectCache[id]) return this.itemRectCache[id]
 
     const rect = element.getBoundingClientRect()
     this.itemRectCache[id] = rect
@@ -119,7 +119,6 @@ export class DragService {
 
   startTracking(
     id: string,
-    index: number,
     event: Pick<MouseEvent, "clientX" | "clientY">,
     { onDragTo }: { onDragTo: (index: number) => void }
   ) {
@@ -206,19 +205,16 @@ export class DragService {
   }
 }
 
-const getMouseMoveHandler =
-  (list: DragService, onDragTo: (index: number) => void) =>
-  (event: Pick<MouseEvent, "clientX" | "clientY">) => {
+const getMouseMoveHandler = (
+  list: DragService,
+  onDragTo: (index: number) => void
+) =>
+  function handleMouseMove(event: Pick<MouseEvent, "clientX" | "clientY">) {
     assertDragging(list, "getMouseMoveHandler")
 
     const dy = event.clientY - list.downAt.y
     const direction = dy > 0 ? "down" : "up"
     const position = list.getDragElementPosition(event)
-
-    list.downElement.style.position = "absolute"
-    list.downElement.style.top = position.top
-    list.downElement.style.left = position.left
-    list.lastPoint = { x: event.clientY, y: event.clientY }
 
     let placeholderIndex = -1
 
@@ -235,6 +231,8 @@ const getMouseMoveHandler =
           list.getRect(list.downElement),
           targetRect
         )
+
+        // console.log(i, element.innerText, mightSwap ? "might swap" : "too low")
 
         if (mightSwap) {
           placeholderIndex = i + 1
@@ -259,6 +257,16 @@ const getMouseMoveHandler =
         }
       }
     }
+
+    // In the initial placement of the placeholder, we want to leave the
+    // dragElement in place, so that the lower elements don't jump up into an
+    // empty space. So we need to wait to set this style.position value until
+    // AFTER we calculate the intrusion. At least on the first mousemove. After
+    // that the placeholder is in the list so it doesn't matter.
+    list.downElement.style.position = "absolute"
+    list.downElement.style.top = position.top
+    list.downElement.style.left = position.left
+    list.lastPoint = { x: event.clientY, y: event.clientY }
 
     if (list.placeholderIndex !== placeholderIndex) {
       list.placeholderIndex = placeholderIndex
