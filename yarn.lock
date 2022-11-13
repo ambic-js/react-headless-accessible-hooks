@@ -786,10 +786,10 @@ check-error@^1.0.2:
   resolved "https://registry.yarnpkg.com/check-error/-/check-error-1.0.2.tgz#574d312edd88bb5dd8912e9286dd6c0aed4aac82"
   integrity sha512-BrgHpW9NURQgzoNyjfq0Wu6VFO6D7IZEmJNdtgNqpzGG8RuNFHt2jQxWlAs4HMe119chBnv+34syEZtc6IhLtA==
 
-codedocs@^0.13.0:
-  version "0.13.0"
-  resolved "https://registry.yarnpkg.com/codedocs/-/codedocs-0.13.0.tgz#986b4879eb3333c0701d8296110e3a7e946dfd8e"
-  integrity sha512-y5akQdGwYrKGlOMo8WmlBR80fUp+LipPI8Z39cjvLlfn/75bOHd61qmShMd7nzIN0nVbSZWS00SVCiwwJhcRXA==
+codedocs@^0.14.0:
+  version "0.14.0"
+  resolved "https://registry.yarnpkg.com/codedocs/-/codedocs-0.14.0.tgz#a92eff8c63dce37bfd49436515ed894e5183f4da"
+  integrity sha512-wKzm2yGXVC1Aayt4Mtk2W95uqXdX+TFYj7g8kxlQf+8T+sjyAxmCdSuQAEqA3MuWIQlIC7WVrNrMc03YrtX5Bw==
   dependencies:
     "@stitches/react" "^1.2.8"
     highlight-words "^1.2.1"

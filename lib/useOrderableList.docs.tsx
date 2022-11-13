@@ -1,5 +1,7 @@
 import { styled } from "@stitches/react"
 import { Doc, Demo } from "codedocs"
+import sortBy from "lodash/sortBy"
+import { useState } from "react"
 import { useOrderableList } from "./useOrderableList"
 
 export default (
@@ -58,9 +60,18 @@ export const Basic = (
         users: { id: string; handle: string }[]
       }
 
-      const Following = ({ users }: FollowingProps) => {
+      const Following = ({ users: initialUsers }: FollowingProps) => {
+        const [users, setUsers] = useState(initialUsers)
+
         const { items, isPlaceholder, getItemProps, isDragging } =
-          useOrderableList(users)
+          useOrderableList(users, {
+            onOrderChange: (sortedIds) => {
+              const sortedUsers = sortBy(initialUsers, (user) =>
+                sortedIds.indexOf(user.id)
+              )
+              setUsers(sortedUsers)
+            },
+          })
 
         return (
           <>
@@ -68,10 +79,7 @@ export const Basic = (
               isPlaceholder(item) ? (
                 <Placeholder {...getItemProps(index)}></Placeholder>
               ) : (
-                <Card
-                  {...getItemProps(index)}
-                  isDragging={isDragging(item.id)}
-                >
+                <Card {...getItemProps(index)} isDragging={isDragging(item.id)}>
                   {item.handle}
                 </Card>
               )

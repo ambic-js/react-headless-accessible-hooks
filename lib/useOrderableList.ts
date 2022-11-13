@@ -44,7 +44,7 @@ type UseOrderableListOptions = {
  */
 export const useOrderableList = <ItemType extends ObjectWithId>(
   items: ItemType[],
-  { onOrderChange }: UseOrderableListOptions = {}
+  { onOrderChange }: UseOrderableListOptions
 ) => {
   const [service] = useState(
     () =>
