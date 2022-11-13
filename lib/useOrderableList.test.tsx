@@ -21,9 +21,9 @@ const USERS = [
 ]
 
 const mockDomRects = (elements: HTMLElement[]) => {
-  const [yvonnezlam, rsms, pavelasamsonov] = elements
+  const [first, second, third] = elements
 
-  vi.spyOn(yvonnezlam, "getBoundingClientRect").mockReturnValue(
+  vi.spyOn(first, "getBoundingClientRect").mockReturnValue(
     mockDomRect({
       width: 200,
       height: 20,
@@ -33,7 +33,7 @@ const mockDomRects = (elements: HTMLElement[]) => {
     })
   )
 
-  vi.spyOn(rsms, "getBoundingClientRect").mockReturnValue(
+  vi.spyOn(second, "getBoundingClientRect").mockReturnValue(
     mockDomRect({
       width: 200,
       height: 20,
@@ -43,7 +43,7 @@ const mockDomRects = (elements: HTMLElement[]) => {
     })
   )
 
-  vi.spyOn(pavelasamsonov, "getBoundingClientRect").mockReturnValue(
+  vi.spyOn(third, "getBoundingClientRect").mockReturnValue(
     mockDomRect({
       width: 200,
       height: 20,
@@ -341,6 +341,70 @@ describe("useOrderableList", () => {
     expect(dragElement.style.top).toBe("")
 
     expect(onOrderChange).toHaveBeenCalledWith(["2", "1", "3"])
+  })
+
+  it("can drag twice; to the bottom of the list and then back up halfway", () => {
+    const { getAllByRole } = render(<List />)
+
+    const intialItems = getAllByRole("listitem")
+
+    expect(intialItems).toHaveLength(3)
+    expect(intialItems[0].innerHTML).toBe("@yvonnezlam")
+    expect(intialItems[1].innerHTML).toBe("@rsms")
+    expect(intialItems[2].innerHTML).toBe("@pavelasamsonov")
+
+    const items = getAllByRole("listitem")
+
+    mockDomRects(items)
+
+    const [yvonnezlam] = items
+    const dragElement = yvonnezlam
+
+    fireEvent.mouseDown(dragElement, {
+      clientX: 10,
+      clientY: 5,
+    })
+
+    fireEvent.mouseMove(dragElement, {
+      clientX: 10,
+      clientY: 36,
+    })
+
+    fireEvent.mouseUp(dragElement, {
+      clientX: 10,
+      clientY: 36,
+    })
+
+    const itemsAfterDragDown = getAllByRole("listitem")
+
+    expect(itemsAfterDragDown).toHaveLength(3)
+    expect(itemsAfterDragDown[0].innerHTML).toBe("@rsms")
+    expect(itemsAfterDragDown[1].innerHTML).toBe("@pavelasamsonov")
+    expect(itemsAfterDragDown[2].innerHTML).toBe("@yvonnezlam")
+
+    mockDomRects(itemsAfterDragDown)
+
+    fireEvent.mouseDown(dragElement, {
+      clientX: 10,
+      clientY: 45,
+    })
+
+    fireEvent.mouseMove(dragElement, {
+      clientX: 10,
+      clientY: 34,
+    })
+
+    fireEvent.mouseUp(dragElement, {
+      clientX: 10,
+      clientY: 34,
+    })
+
+    const itemsAfterDrop = getAllByRole("listitem")
+
+    expect(itemsAfterDrop).toHaveLength(3)
+    expect(itemsAfterDrop[0].innerHTML).toBe("@rsms")
+    expect(itemsAfterDrop[1].innerHTML).toBe("@yvonnezlam")
+    expect(itemsAfterDrop[2].innerHTML).toBe("@pavelasamsonov")
   })
 })
 

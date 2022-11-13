@@ -1,4 +1,3 @@
-import without from "lodash/without"
 import type React from "react"
 import { useState, useMemo, useEffect } from "react"
 import short from "short-uuid"
@@ -46,21 +45,25 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   items: ItemType[],
   { onOrderChange }: UseOrderableListOptions
 ) => {
+  const [orderedIds, setOrder] = useState(() => items.map(({ id }) => id))
+
   const [service] = useState(
     () =>
-      new DragService({
-        onDragEnd: (id, index) => {
-          const oldIds = items.map((item) => item.id)
-          const before = without(oldIds.slice(0, index), id)
-          const after = without(oldIds.slice(index), id)
-          const newIds = [...before, id, ...after]
-
+      new DragService(orderedIds, {
+        onDragEnd: (newOrderedIds) => {
           setPlaceholderIndex(-1)
           setDraggingId(undefined)
-          onOrderChange?.(newIds)
+          setOrder(newOrderedIds)
+          onOrderChange?.(newOrderedIds)
         },
       })
   )
+
+  // It's a bit unusual to fire a mutation on every render, but in this case
+  // we want to ensure the list length is correct on each render because the
+  // `getItemProps` function includes a callback ref that will sync the
+  // elements to the DragService on every render
+  service.resetElementList(orderedIds)
 
   const [placeholderIndex, setPlaceholderIndex] = useState(-1)
   const [draggingId, setDraggingId] = useState<string | undefined>()
@@ -94,8 +97,6 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     },
     [items, placeholderIndex]
   )
-
-  service.resetElementList(items.length)
 
   const getItemProps = (index: number) => {
     const item = itemsAndPlaceholders[index]

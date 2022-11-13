@@ -1,9 +1,10 @@
+import without from "lodash/without"
 import { assertHTMLTarget } from "~/helpers"
 
 type Point = { x: number; y: number }
 
 type DragServiceOptions = {
-  onDragEnd: (id: string, index: number) => void
+  onDragEnd: (newOrderedIds: string[]) => void
 }
 
 /**
@@ -23,6 +24,7 @@ export class DragService {
   downId: string | undefined
   downAt: Point | undefined
   lastPoint: Point | undefined
+  lastDirection: "up" | "down" | undefined
   isDragging = false
   draggingId: string | undefined
   downElement: HTMLElement | undefined
@@ -34,16 +36,19 @@ export class DragService {
     | ((event: Pick<MouseEvent, "clientX" | "clientY">) => void)
     | undefined
   handleUp: (() => void) | undefined
-  onDragEnd: (id: string, index: number) => void
+  onDragEnd: (newOrderedIds: string[]) => void
   placeholderIndex: number | undefined
+  orderedIds: string[]
 
-  constructor({ onDragEnd }: DragServiceOptions) {
+  constructor(ids: string[], { onDragEnd }: DragServiceOptions) {
+    this.orderedIds = ids
     this.onDragEnd = onDragEnd
   }
 
   onMouseDown(event: React.MouseEvent) {
     assertHTMLTarget(event)
     this.downAt = this.lastPoint = { x: event.clientX, y: event.clientY }
+    this.lastDirection = undefined
     this.downElement = event.target
     this.downId = event.target.dataset.rhahOrderableListId
     this.downRect = event.target.getBoundingClientRect()
@@ -61,8 +66,9 @@ export class DragService {
    * elements and placeholder position, even if those things are changing
    * mid-drag.
    */
-  resetElementList(length: number) {
-    this.maxElementIndex = length - 1
+  resetElementList(ids: string[]) {
+    this.orderedIds = ids
+    this.maxElementIndex = ids.length - 1
   }
 
   /**
@@ -171,7 +177,8 @@ export class DragService {
       window.removeEventListener("mousemove", this.handleMove)
       window.removeEventListener("mouseup", this.handleUp)
 
-      const id = this.draggingId
+      console.log("moving item to", this.placeholderIndex)
+      const droppedId = this.draggingId
       const index = this.placeholderIndex
 
       this.downElement.style.position = ""
@@ -188,7 +195,11 @@ export class DragService {
       this.downElement = undefined
       this.downRect = undefined
 
-      this.onDragEnd(id, index)
+      const before = without(this.orderedIds.slice(0, index), droppedId)
+      const after = without(this.orderedIds.slice(index), droppedId)
+      const newIds = [...before, droppedId, ...after]
+
+      this.onDragEnd(newIds)
     }
 
     window.addEventListener("mousemove", this.handleMove)
@@ -213,7 +224,20 @@ const getMouseMoveHandler = (
     assertDragging(list, "getMouseMoveHandler")
 
     const dy = event.clientY - list.downAt.y
-    const direction = dy > 0 ? "down" : "up"
+    const log = false // Math.random() < 0.025
+    const dyFromLastPoint = event.clientY - list.lastPoint.y
+
+    const direction =
+      dyFromLastPoint > 0
+        ? "down"
+        : dyFromLastPoint < 0
+        ? "up"
+        : list.lastDirection || "down"
+
+    list.lastDirection = direction
+    list.lastPoint = { x: event.clientY, y: event.clientY }
+
+    log && console.log(dy, direction)
     const position = list.getDragElementPosition(event)
 
     let placeholderIndex = -1
@@ -226,13 +250,20 @@ const getMouseMoveHandler = (
 
         const targetRect = list.getRect(element)
 
-        const mightSwap = intrudesDown(
-          dy,
-          list.getRect(list.downElement),
-          targetRect
-        )
+        const mightSwap = intrudesDown(dy, list.downRect, targetRect)
 
-        // console.log(i, element.innerText, mightSwap ? "might swap" : "too low")
+        // if (dy < 50 && i === 2 && mightSwap) {
+        //   debugger
+        // }
+
+        intrudesDown(dy, list.downRect, targetRect)
+
+        log &&
+          console.log(
+            i,
+            element.innerText,
+            mightSwap ? "might swap" : "too low"
+          )
 
         if (mightSwap) {
           placeholderIndex = i + 1
@@ -250,6 +281,13 @@ const getMouseMoveHandler = (
         const targetRect = list.getRect(element)
         const mightSwap = intrudesUp(dy, list.downRect, targetRect)
 
+        log &&
+          console.log(
+            i,
+            element.innerText,
+            mightSwap ? "might swap" : "too high"
+          )
+
         if (mightSwap) {
           placeholderIndex = i
         } else {
@@ -266,10 +304,10 @@ const getMouseMoveHandler = (
     list.downElement.style.position = "absolute"
     list.downElement.style.top = position.top
     list.downElement.style.left = position.left
-    list.lastPoint = { x: event.clientY, y: event.clientY }
 
     if (list.placeholderIndex !== placeholderIndex) {
       list.placeholderIndex = placeholderIndex
+      log && console.log("moving placeholder to", placeholderIndex)
       onDragTo(placeholderIndex)
     }
   }
