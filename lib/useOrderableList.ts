@@ -1,5 +1,5 @@
 import type React from "react"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import short from "short-uuid"
 import { DragService } from "./DragService"
 import { assertHTMLTarget } from "~/helpers"
@@ -35,17 +35,24 @@ type PlaceholderProps = Pick<
   ref: (element: HTMLElement | null) => void
 }
 
+/**
+ * Hook which gives you some functions to make a list of elements re-orderable via drag and drop.
+ */
 export const useOrderableList = <ItemType extends ObjectWithId>(
   items: ItemType[]
 ) => {
   const [service] = useState(() => new DragService())
   const [placeholderIndex, setPlaceholderIndex] = useState(-1)
   const [draggingId, setDraggingId] = useState<string | undefined>()
+
+  useEffect(() => {
+    return () => service.destroy()
+  }, [service])
+
   // const itemPropsCache = useRef<Record<string, ItemProps>>({})
 
   const itemsAndPlaceholders = useMemo(
     function insertPlaceholders() {
-      console.log("memoizing items")
       const itemsToSplice = items
 
       if (placeholderIndex < 0 || !service.downRect) return items
@@ -69,8 +76,6 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   )
 
   service.resetElementList(itemsAndPlaceholders.length)
-
-  console.log({ placeholderIndex, items: itemsAndPlaceholders.length })
 
   const getItemProps = (index: number) => {
     const item = itemsAndPlaceholders[index]
@@ -107,9 +112,9 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     const props: ItemProps = {
       onMouseMove: (event) => {
         if (service.isDragging) return
-        if (!service.dragDidStartAt(item.id, event.clientX, event.clientY))
+        if (!service.dragDidStartAt(item.id, event.clientX, event.clientY)) {
           return
-        console.log("element mouse move handler")
+        }
         startDrag(item.id, event)
         // event.preventDefault()
       },
@@ -130,8 +135,6 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   }
 
   const startDrag = (id: string, event: React.MouseEvent) => {
-    console.log("startDrag", service.downAt)
-
     if (!service.downAt || !service.downRect) {
       throw new Error("Can't start drag because we don't know down position")
     }
@@ -141,10 +144,11 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     const draggingItemIndex = items.findIndex((item) => item.id === id)
 
     setPlaceholderIndex(draggingItemIndex)
-    console.log("set setPlaceholderIndex to", draggingItemIndex)
     setDraggingId(id)
     service.trackDrag(setPlaceholderIndex)
 
+    // Code below needs draggingId to have been set because DragService needs to
+    // be in dragging state:
     const position = service.getDragElementPosition(event)
 
     event.target.style.position = "absolute"

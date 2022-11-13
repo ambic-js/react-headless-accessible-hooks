@@ -2,6 +2,19 @@ import { assertHTMLTarget } from "~/helpers"
 
 type Point = { x: number; y: number }
 
+/**
+ * The DragService keeps track of all of the data that doesn't need to directly
+ * affect React state.
+ *
+ * The `useOrderableList` hook only keeps state for the couple of things that
+ * need to trigger re-renders of the consuming component. I.e. the things that
+ * change when a placeholder moves:
+ *  - placeholderIndex
+ *  - draggingId
+ *
+ * However, we don't want mousemoves to trigger re-renders (most of the time) so
+ * the DragService is mostly for handling mousemoves.
+ */
 export class DragService {
   downId: string | undefined
   downAt: Point | undefined
@@ -13,35 +26,44 @@ export class DragService {
   itemRectCache: Record<string, DOMRect> = {}
   elements: HTMLElement[] = []
   maxElementIndex = 0
+  handleMove: ((event: MouseEvent) => void) | undefined
+  handleUp: (() => void) | undefined
 
   onMouseDown(event: React.MouseEvent) {
-    this.downAt = this.lastPoint = { x: event.clientX, y: event.clientY }
     assertHTMLTarget(event)
+    this.downAt = this.lastPoint = { x: event.clientX, y: event.clientY }
     this.downElement = event.target
     this.downId = event.target.dataset.rhahOrderableListId
     this.downRect = event.target.getBoundingClientRect()
   }
 
+  /**
+   * Each time the `useOrderableList` hook re-renders we rebuild a list of DOM
+   * Elements stored here in the DragService. The way that works is the hook
+   * calls this `resetElementList` function, which empties out the list, and
+   * then when the `getItemProps(i)` function is called for each item in the
+   * list, that provides the element with a callback ref, and as that callback
+   * is called, we repopulate the element list by calling `pushElement` (below).
+   *
+   * This guarantees the element list is always up-to-date with the most recent
+   * elements and placeholder position, even if those things are changing
+   * mid-drag.
+   */
   resetElementList(length: number) {
-    console.log("resetting to length", length)
     this.maxElementIndex = length - 1
   }
 
+  /**
+   * Updates the index of an item element in the element list.
+   *
+   * See `resetElementList` above for details.
+   */
   pushElement(element: HTMLElement, index: number) {
-    if (this.elements[index] === element) {
-      console.log("element already present 👍")
-    } else {
-      console.log(
-        "setting",
-        index,
-        "=",
-        element.dataset.rhahPlaceholder
-          ? "[placeholder]"
-          : element.dataset.rhahOrderableListId
-      )
-      this.elements[index] = element
-      this.maxElementIndex = Math.max(this.maxElementIndex, index)
-    }
+    if (element.dataset.rhahPlaceholder) return
+    if (this.elements[index] === element) return
+
+    this.elements[index] = element
+    this.maxElementIndex = Math.max(this.maxElementIndex, index)
   }
 
   dragDidStartAt(id: string, x: number, y: number) {
@@ -58,6 +80,8 @@ export class DragService {
   getRect(element: HTMLElement) {
     const id = element.dataset.rhahOrderableListId as string
 
+    // FIXME: If the element changes size ever, this cache will be stale. So
+    // we'll need to add ResizeObservers at some point to invalidate the cache.
     if (this.itemRectCache[id]) return this.itemRectCache[id]
 
     const rect = element.getBoundingClientRect()
@@ -82,17 +106,33 @@ export class DragService {
   }
 
   trackDrag(setPlaceholderIndex: (index: number) => void) {
+    if (this.handleMove || this.handleUp) {
+      throw new Error(
+        "Trying to track drag, but move/up handlers already exist"
+      )
+    }
+
     this.isDragging = true
-    console.log("listen")
+
     assertDragging(this, "trackDrag")
 
-    const handleMove = getMouseMoveHandler(this, setPlaceholderIndex)
+    // This handler is defined outside the class 1) because it's a pretty big
+    // function, and 2) because we can then curry it and keep the reference to
+    // the curry so it can be later removed from the window's event listeners
+    // when the drag stops.
+    this.handleMove = getMouseMoveHandler(this, setPlaceholderIndex)
 
-    const handleUp = () => {
-      console.log("up!")
-      window.removeEventListener("mousemove", handleMove)
-      window.removeEventListener("mouseup", handleUp)
+    this.handleUp = () => {
+      if (!this.handleMove || !this.handleUp) {
+        throw new Error(
+          "Tried to unsubscribe from mousemove and mouseup but handlers were missing"
+        )
+      }
+      window.removeEventListener("mousemove", this.handleMove)
+      window.removeEventListener("mouseup", this.handleUp)
 
+      this.handleMove = undefined
+      this.handleUp = undefined
       this.downId = undefined
       this.downAt = undefined
       this.lastPoint = undefined
@@ -102,26 +142,31 @@ export class DragService {
       this.downRect = undefined
     }
 
-    window.addEventListener("mousemove", handleMove)
-    window.addEventListener("mouseup", handleUp)
+    window.addEventListener("mousemove", this.handleMove)
+    window.addEventListener("mouseup", this.handleUp)
+  }
+
+  destroy() {
+    if (this.handleMove) {
+      window.removeEventListener("mousemove", this.handleMove)
+    }
+    if (this.handleUp) {
+      window.removeEventListener("mouseup", this.handleUp)
+    }
   }
 }
 
 const getMouseMoveHandler =
   (list: DragService, setPlaceholderIndex: (index: number) => void) =>
   (event: MouseEvent) => {
-    console.log("window mouse move handler")
     assertDragging(list, "getMouseMoveHandler")
 
     const dy = event.clientY - list.downAt.y
-
+    const direction = dy > 0 ? "down" : "up"
     const position = list.getDragElementPosition(event)
 
     list.downElement.style.top = position.top
     list.downElement.style.left = position.left
-
-    const direction = event.clientY - list.lastPoint.y > 0 ? "down" : "up"
-    console.log("moving", direction)
     list.lastPoint = { x: event.clientY, y: event.clientY }
 
     let swappableElementIndex = -1
@@ -129,12 +174,10 @@ const getMouseMoveHandler =
     if (direction === "down") {
       for (let i = 0; i <= list.maxElementIndex; i++) {
         const element = list.elements[i]
-        if (element.dataset.rhahPlaceholder) continue
-        const targetRect = list.getRect(element)
 
-        // if (i > 1 && intrudesDown(dy, list.downRect, targetRect)) {
-        //   debugger
-        // }
+        if (element.dataset.rhahPlaceholder) continue
+
+        const targetRect = list.getRect(element)
 
         const mightSwap = intrudesDown(
           dy,
@@ -163,10 +206,25 @@ const getMouseMoveHandler =
       }
     }
 
-    console.log("setting placeholderIndex in list to", swappableElementIndex)
     setPlaceholderIndex(swappableElementIndex)
   }
 
+/**
+ * The algorithm we use to determine whether an item should move out of the way
+ * for the placeholder is:
+ *
+ *  - when moving downward (dy > 0)...
+ *    - an element should be moved above the placeholder if...
+ *      - the element being dragged extends one half of its height into that
+ *        element
+ *  - when moving upward (dy <= 0)...
+ *    - an element should be moved below the placeholder if...
+ *      - the element being dragged extends one half of its height into that
+ *        element
+ *
+ * These two functions, `intrudesDown` and `intrudesUp` calculate whether an
+ * element should slide past the placeholder in each of those scenarios.
+ */
 const intrudesDown = (
   dy: number,
   draggingItemRect: DOMRect,
@@ -203,6 +261,10 @@ type DraggingDragService = DragService & {
   lastPoint: Exclude<DragService["lastPoint"], undefined>
 }
 
+/**
+ * Type guard that lets code know whether the DragService is in a dragging state
+ * or not. Makes for fewer null checks.
+ */
 function assertDragging(
   list: DragService,
   functionName: string

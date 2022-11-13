@@ -66,13 +66,9 @@ export const Basic = (
           <>
             {items.map((item, index) =>
               isPlaceholder(item) ? (
-                <Placeholder
-                  key={item.key}
-                  {...getItemProps(index)}
-                ></Placeholder>
+                <Placeholder {...getItemProps(index)}></Placeholder>
               ) : (
                 <Card
-                  key={item.id}
                   {...getItemProps(index)}
                   isDragging={isDragging(item.id)}
                 >
