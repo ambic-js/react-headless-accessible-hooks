@@ -63,6 +63,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   // we want to ensure the list length is correct on each render because the
   // `getItemProps` function includes a callback ref that will sync the
   // elements to the DragService on every render
+  /// this would move down below so it could use itemsAndPlaceholders?
   service.resetElementList(orderedIds)
 
   const [placeholderIndex, setPlaceholderIndex] = useState(-1)
@@ -80,15 +81,12 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
 
       if (placeholderIndex < 0 || !service.downRect) return items
 
-      // if (!placeholderRect) return items
-
       const before = itemsToSplice.slice(0, placeholderIndex)
       const after = itemsToSplice.slice(placeholderIndex)
 
       const placeholder: Placeholder = {
         __typename: "Placeholder",
-        id: short.generate(),
-        // rect: placeholderRect,
+        id: `rhah-placeholder-${short.generate()}`,
       }
 
       const newItems = [...before, placeholder, ...after]
@@ -106,11 +104,13 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
 
     if (isPlaceholder(item)) {
       const props: PlaceholderProps = {
-        "data-rhah-placeholder": "true",
+        "data-rhah-placeholder": "true", /// delete
+        /// add rhahOrderableListId so the rect can be cached if we ever uncomment that
         style: {
           width: service.downRect?.width,
           height: service.downRect?.height,
         },
+        /// need to push an id from a callback ref here
       }
       return props
     }
@@ -126,6 +126,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     //   style.pointerEvents = "none"
     // }
 
+    /// this would have to be just the index?
     const indexIgnoringPlaceholders = itemsAndPlaceholders
       .slice(0, index)
       .filter((item) => !isPlaceholder(item)).length

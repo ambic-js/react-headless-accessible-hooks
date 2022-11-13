@@ -19,6 +19,8 @@ type DragServiceOptions = {
  *
  * However, we don't want mousemoves to trigger re-renders (most of the time) so
  * the DragService is mostly for handling mousemoves.
+ *
+ * /// add a note here about item-index vs element-index. And maybe rename some things to use that convention?
  */
 export class DragService {
   downId: string | undefined
@@ -41,7 +43,7 @@ export class DragService {
   orderedIds: string[]
 
   constructor(ids: string[], { onDragEnd }: DragServiceOptions) {
-    this.orderedIds = ids
+    this.orderedIds = ids /// seems ok because there wouldn't be a placeholder yet at this stage
     this.onDragEnd = onDragEnd
   }
 
@@ -67,6 +69,7 @@ export class DragService {
    * mid-drag.
    */
   resetElementList(ids: string[]) {
+    /// we'd have to figure out what id would go here for placeholders? I guess we could just start with undefined? Or maybe just leave the placeholder id?
     this.orderedIds = ids
     this.maxElementIndex = ids.length - 1
   }
@@ -77,7 +80,7 @@ export class DragService {
    * See `resetElementList` above for details.
    */
   pushElement(element: HTMLElement, index: number) {
-    if (element.dataset.rhahPlaceholder) return
+    if (element.dataset.rhahPlaceholder) return /// delete
     if (this.elements[index] === element) return
 
     this.elements[index] = element
@@ -96,14 +99,14 @@ export class DragService {
   }
 
   getRect(element: HTMLElement) {
-    const id = element.dataset.rhahOrderableListId as string
+    // const id = element.dataset.rhahOrderableListId as string
 
     // FIXME: If the element changes size ever, this cache will be stale. So
     // we'll need to add ResizeObservers at some point to invalidate the cache.
     // if (this.itemRectCache[id]) return this.itemRectCache[id]
 
     const rect = element.getBoundingClientRect()
-    this.itemRectCache[id] = rect
+    // this.itemRectCache[id] = rect
 
     return rect
   }
@@ -121,6 +124,17 @@ export class DragService {
       top,
       left,
     }
+  }
+
+  getGap(direction: "up" | "down") {
+    if (this.elements.length < 2) return 0
+
+    const lastIndex = direction === "up" ? 0 : this.elements.length - 1
+    const nextToLastIndex = direction === "up" ? 1 : this.elements.length - 1
+    const last = this.elements[lastIndex]
+    const nextToLast = this.elements[nextToLastIndex]
+
+    return this.getRect(last).top - this.getRect(nextToLast).bottom
   }
 
   startTracking(
@@ -177,9 +191,10 @@ export class DragService {
       window.removeEventListener("mousemove", this.handleMove)
       window.removeEventListener("mouseup", this.handleUp)
 
+      /// what's confusing is that placeholderIndex is in items-space and but orderedIds could be in elements-space?
       console.log("moving item to", this.placeholderIndex)
       const droppedId = this.draggingId
-      const index = this.placeholderIndex
+      const index = this.placeholderIndex /// this we can just ditch
 
       this.downElement.style.position = ""
       this.downElement.style.top = ""
@@ -195,9 +210,16 @@ export class DragService {
       this.downElement = undefined
       this.downRect = undefined
 
+      if (index === -2) {
+        this.onDragEnd(this.orderedIds) /// strip out placeholder ids here
+        return
+      }
+
+      /// instead of this we could just remove the droppedId and swap it in where the placeholder id is?
       const before = without(this.orderedIds.slice(0, index), droppedId)
       const after = without(this.orderedIds.slice(index), droppedId)
       const newIds = [...before, droppedId, ...after]
+      /// set this.orderedIds to newIds?
 
       this.onDragEnd(newIds)
     }
@@ -217,6 +239,7 @@ export class DragService {
 }
 
 const getMouseMoveHandler = (
+  // todo: rename to service
   list: DragService,
   onDragTo: (index: number) => void
 ) =>
@@ -224,7 +247,8 @@ const getMouseMoveHandler = (
     assertDragging(list, "getMouseMoveHandler")
 
     const dy = event.clientY - list.downAt.y
-    const log = false // Math.random() < 0.025
+    const dx = event.clientX - list.downAt.x
+    const log = Math.random() < 0.025
     const dyFromLastPoint = event.clientY - list.lastPoint.y
 
     const direction =
@@ -240,17 +264,30 @@ const getMouseMoveHandler = (
     log && console.log(dy, direction)
     const position = list.getDragElementPosition(event)
 
-    let placeholderIndex = -1
+    /// remember this is in item-space. So, we're going to try to keep it in
+    /// item-space and only export indicies in item-space. I think
+    /// elements-space is going to be confined to this service hopefully?
+    let placeholderIndex = list.placeholderIndex || -2
 
     if (direction === "down") {
       for (let i = 0; i <= list.maxElementIndex; i++) {
         const element = list.elements[i]
 
+        /// delete
         if (element.dataset.rhahPlaceholder) continue
 
         const targetRect = list.getRect(element)
-
         const mightSwap = intrudesDown(dy, list.downRect, targetRect)
+
+        if (
+          i === list.maxElementIndex &&
+          isBelow(dx, dy, list.getGap("down"), list.downRect, targetRect)
+        ) {
+          placeholderIndex = -2
+          // debugger
+          // isBelow(dx, dy, list.getGap("down"), list.downRect, targetRect)
+          break
+        }
 
         // if (dy < 50 && i === 2 && mightSwap) {
         //   debugger
@@ -266,6 +303,12 @@ const getMouseMoveHandler = (
           )
 
         if (mightSwap) {
+          /// ok, we're moving down... therefore we put the placeholderIndex
+          /// *after* the given item index. However, now the placeholder is in
+          /// elements, so the placeholder is maybe (not necessarily) above us
+          /// (could have come in from the side). So I think we'd need to keep
+          /// track of the indexWithoutPlaceholders here and return that plus
+          /// one?
           placeholderIndex = i + 1
         } else {
           break
@@ -274,12 +317,30 @@ const getMouseMoveHandler = (
     } else {
       for (let i = list.maxElementIndex; i >= 0; i--) {
         const element = list.elements[i]
-        if (!element) {
-          throw new Error(`No element at index ${i}`)
-        }
+
+        /// delete
         if (element.dataset.rhahPlaceholder) continue
+
         const targetRect = list.getRect(element)
         const mightSwap = intrudesUp(dy, list.downRect, targetRect)
+
+        /// clean up
+        const isLastPossibleElement =
+          (i === 1 &&
+            list.elements[0].dataset.rhahOrderableListId === list.draggingId) ||
+          i === 0
+        // if (dy < -100 && isLastPossibleElement) {
+        //   debugger
+        // }
+        if (
+          isLastPossibleElement &&
+          isAbove(dx, dy, list.getGap("up"), list.downRect, targetRect)
+        ) {
+          placeholderIndex = -2
+          // debugger
+          // isAbove(dx, dy, list.getGap("up"), list.downRect, targetRect)
+          break
+        }
 
         log &&
           console.log(
@@ -289,6 +350,7 @@ const getMouseMoveHandler = (
           )
 
         if (mightSwap) {
+          /// moving up, placeholder could be below, above, or at this spot... here I think we just want indexWithoutPlaceholders?
           placeholderIndex = i
         } else {
           break
@@ -307,7 +369,7 @@ const getMouseMoveHandler = (
 
     if (list.placeholderIndex !== placeholderIndex) {
       list.placeholderIndex = placeholderIndex
-      log && console.log("moving placeholder to", placeholderIndex)
+      console.log("moving placeholder to", placeholderIndex)
       onDragTo(placeholderIndex)
     }
   }
@@ -353,6 +415,49 @@ const intrudesUp = (
   ) {
     return true
   }
+  return false
+}
+
+/**
+ * These aren't strictly above/below checks, they also return false if the
+ * dragging item is fully to the left or right of the target item, so they serve
+ * to check if the dragging item has left the list (in a certain direction)
+ */
+/// this we can just revert to paying attention to the top and bottom of the
+/// last element, since the placeholder will be in elements now.
+const isBelow = (
+  dx: number,
+  dy: number,
+  gap: number,
+  draggingItemRect: DOMRect,
+  targetItemRect: DOMRect
+) => {
+  if (
+    draggingItemRect.top + dy >
+    targetItemRect.bottom + draggingItemRect.height + gap
+  ) {
+    return true
+  }
+  if (draggingItemRect.right + dx < targetItemRect.left) return true
+  if (draggingItemRect.left + dx > targetItemRect.right) return true
+  return false
+}
+
+const isAbove = (
+  dx: number,
+  dy: number,
+  gap: number,
+  draggingItemRect: DOMRect,
+  targetItemRect: DOMRect
+) => {
+  /// same here
+  if (
+    draggingItemRect.bottom + dy <
+    targetItemRect.top - draggingItemRect.height - gap
+  )
+    return true
+  if (draggingItemRect.right + dx < targetItemRect.left) return true
+  if (draggingItemRect.left + dx > targetItemRect.right) return true
   return false
 }
 

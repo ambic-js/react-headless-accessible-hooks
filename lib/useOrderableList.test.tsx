@@ -406,6 +406,42 @@ describe("useOrderableList", () => {
     expect(itemsAfterDrop[1].innerHTML).toBe("@yvonnezlam")
     expect(itemsAfterDrop[2].innerHTML).toBe("@pavelasamsonov")
   })
+
+  it.only("should have no placeholder if you drag off the list entirely", () => {
+    const { getAllByRole } = render(<List />)
+
+    const intialItems = getAllByRole("listitem")
+
+    expect(intialItems).toHaveLength(3)
+    expect(intialItems[0].innerHTML).toBe("@yvonnezlam")
+    expect(intialItems[1].innerHTML).toBe("@rsms")
+    expect(intialItems[2].innerHTML).toBe("@pavelasamsonov")
+
+    const items = getAllByRole("listitem")
+
+    mockDomRects(items)
+
+    const [yvonnezlam] = items
+    const dragElement = yvonnezlam
+
+    fireEvent.mouseDown(dragElement, {
+      clientX: 10,
+      clientY: 5,
+    })
+
+    fireEvent.mouseMove(dragElement, {
+      clientX: 10,
+      clientY: 5 + 30 + 1, // start plus three full item heights plus one extra pixel
+    })
+
+    const itemsAfterDragOut = getAllByRole("listitem")
+
+    // Should be no placeholder
+    expect(itemsAfterDragOut).toHaveLength(3)
+    expect(intialItems[0].innerHTML).toBe("@yvonnezlam")
+    expect(intialItems[1].innerHTML).toBe("@rsms")
+    expect(intialItems[2].innerHTML).toBe("@pavelasamsonov")
+  })
 })
 
 const toNumber = (str: string) => {
