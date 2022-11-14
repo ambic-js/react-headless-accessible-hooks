@@ -49,7 +49,6 @@ export class DragService {
   onDragEnd: (newOrderedIds: string[]) => void
   orderedElementIds: string[]
   placeholderItemIndex: number | undefined
-  placeholderElementIndex: number | undefined
 
   constructor(ids: string[], { onDragEnd }: DragServiceOptions) {
     this.orderedElementIds = ids
@@ -197,10 +196,7 @@ export class DragService {
         throw new Error("Got mouseUp event but draggingId is undefined?")
       }
 
-      if (
-        this.placeholderItemIndex === undefined ||
-        this.placeholderElementIndex === undefined
-      ) {
+      if (this.placeholderItemIndex === undefined) {
         throw new Error("Got mouseUp event but placeholderIndex is undefined?")
       }
 
@@ -286,7 +282,6 @@ const getMouseMoveHandler = (
     log && console.log(dy, direction)
     const position = list.getDragElementPosition(event)
 
-    let newElementIndex = list.placeholderElementIndex || -2
     let newItemIndex = list.placeholderItemIndex || -2
 
     if (direction === "down") {
@@ -298,7 +293,7 @@ const getMouseMoveHandler = (
       ) {
         const element = list.elements[elementIndex]
 
-        if (elementIndex !== list.placeholderElementIndex) {
+        if (elementIndex !== list.placeholderItemIndex) {
           itemIndex++
         }
 
@@ -309,7 +304,7 @@ const getMouseMoveHandler = (
           elementIndex === list.maxElementIndex &&
           isBelow(dx, dy, list.downRect, targetRect)
         ) {
-          newItemIndex = newElementIndex = -2
+          newItemIndex = -2
           break
         }
 
@@ -323,7 +318,7 @@ const getMouseMoveHandler = (
           )
 
         if (mightSwap) {
-          newItemIndex = newElementIndex = itemIndex
+          newItemIndex = itemIndex
         } else {
           break
         }
@@ -349,7 +344,7 @@ const getMouseMoveHandler = (
           isLastPossibleElement &&
           isAbove(dx, dy, list.downRect, targetRect)
         ) {
-          newItemIndex = newElementIndex = -2
+          newItemIndex = -2
           break
         }
 
@@ -361,14 +356,21 @@ const getMouseMoveHandler = (
           )
 
         const getItemIndex = () => {
-          if (!list.placeholderElementIndex) return elementIndex
-          if (list.placeholderElementIndex > elementIndex) return elementIndex
-          if (list.placeholderElementIndex < 0) return elementIndex
+          // We may not have placed the placeholder yet:
+          if (!list.placeholderItemIndex) return elementIndex
+          // If the placeholder is below the element in the list, the item index
+          // and element index are the same:
+          if (list.placeholderItemIndex > elementIndex) return elementIndex
+          // If there is no placeholder, the item index and the element index
+          // are the same:
+          if (list.placeholderItemIndex < 0) return elementIndex
+          // Otherwise the placeholder is before the element and the item index
+          // is one less than the element index:
           return elementIndex - 1
         }
 
         if (mightSwap) {
-          newItemIndex = newElementIndex = getItemIndex()
+          newItemIndex = getItemIndex()
         } else {
           break
         }
@@ -386,7 +388,6 @@ const getMouseMoveHandler = (
 
     if (list.placeholderItemIndex !== newItemIndex) {
       list.placeholderItemIndex = newItemIndex
-      list.placeholderElementIndex = newElementIndex
       onDragTo(newItemIndex)
     }
   }
