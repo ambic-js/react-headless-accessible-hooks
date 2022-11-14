@@ -332,13 +332,14 @@ const getMouseMoveHandler = (
         const element = list.elements[elementIndex]
 
         const targetRect = list.getRect(element)
+
         const mightSwap = intrudesUp(dy, list.downRect, targetRect)
 
-        /// clean up
+        const firstElementIsDetached =
+          list.elements[0].dataset.rhahOrderableListId === list.draggingId
+
         const isLastPossibleElement =
-          (elementIndex === 1 &&
-            list.elements[0].dataset.rhahOrderableListId === list.draggingId) ||
-          elementIndex === 0
+          (elementIndex === 1 && firstElementIsDetached) || elementIndex === 0
 
         if (
           isLastPossibleElement &&
