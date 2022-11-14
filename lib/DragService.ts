@@ -49,6 +49,7 @@ export class DragService {
   onDragEnd: (newOrderedIds: string[]) => void
   orderedElementIds: string[]
   placeholderItemIndex: number | undefined
+  didMountPlaceholder = false
 
   constructor(ids: string[], { onDragEnd }: DragServiceOptions) {
     this.orderedElementIds = ids
@@ -62,6 +63,7 @@ export class DragService {
     this.downElement = event.target
     this.downId = event.target.dataset.rhahOrderableListId
     this.downRect = event.target.getBoundingClientRect()
+    this.didMountPlaceholder = false
   }
 
   /**
@@ -87,6 +89,9 @@ export class DragService {
    * See `resetElementList` above for details.
    */
   pushElement(element: HTMLElement, index: number) {
+    if (!this.didMountPlaceholder && isPlaceholderId(getItemId(element))) {
+      this.didMountPlaceholder = true
+    }
     if (index > this.maxElementIndex) {
       throw new Error(
         `Adding an element at index ${index} which is beyond the max expected index of ${this.maxElementIndex}`
@@ -137,20 +142,9 @@ export class DragService {
     }
   }
 
-  getGap(direction: "up" | "down") {
-    if (this.elements.length < 2) return 0
-
-    const lastIndex = direction === "up" ? 0 : this.elements.length - 1
-    const nextToLastIndex = direction === "up" ? 1 : this.elements.length - 1
-    const last = this.elements[lastIndex]
-    const nextToLast = this.elements[nextToLastIndex]
-
-    return this.getRect(last).top - this.getRect(nextToLast).bottom
-  }
-
   startTracking(
     id: string,
-    event: Pick<MouseEvent, "clientX" | "clientY">,
+    event: Pick<MouseEvent, "clientX" | "clientY" | "stopPropagation">,
     { onDragTo }: { onDragTo: (index: number) => void }
   ) {
     if (this.handleMove || this.handleUp) {
@@ -174,6 +168,15 @@ export class DragService {
     // report back the correct placeholderIndex to the hook... although I'm
     // thinking maybe we can skip this because we add a window mousemove handler
     // and then this event bubbles up to that? this.handleMove(event)
+
+    event.stopPropagation()
+    const startIndex = this.orderedElementIds.indexOf(id)
+    this.placeholderItemIndex = startIndex
+    const position = this.getDragElementPosition(event)
+    this.downElement.style.position = "absolute"
+    this.downElement.style.top = position.top
+    this.downElement.style.left = position.left
+    onDragTo(startIndex)
 
     this.handleUp = () => {
       if (!this.handleMove) {
@@ -250,6 +253,10 @@ export class DragService {
   }
 }
 
+const getItemId = (element: HTMLElement) => {
+  return element.dataset.rhahOrderableListId as string
+}
+
 export const isPlaceholderId = (id: string) => /^rhah-placeholder-/.test(id)
 
 const withoutPlaceholderIds = (ids: string[]) => {
@@ -266,7 +273,7 @@ const getMouseMoveHandler = (
 
     const dy = event.clientY - list.downAt.y
     const dx = event.clientX - list.downAt.x
-    const log = true //Math.random() < 0.025
+    const log = false //Math.random() < 0.025
     const dyFromLastPoint = event.clientY - list.lastPoint.y
 
     const direction =
@@ -282,10 +289,16 @@ const getMouseMoveHandler = (
     log && console.log(dy, direction)
     const position = list.getDragElementPosition(event)
 
+    list.downElement.style.top = position.top
+    list.downElement.style.left = position.left
+
+    if (!list.didMountPlaceholder) {
+      return
+    }
+
     let newItemIndex = list.placeholderItemIndex || -2
 
     if (direction === "down") {
-      let itemIndex = 0
       for (
         let elementIndex = 0;
         elementIndex <= list.maxElementIndex;
@@ -293,15 +306,24 @@ const getMouseMoveHandler = (
       ) {
         const element = list.elements[elementIndex]
 
-        if (elementIndex !== list.placeholderItemIndex) {
-          itemIndex++
+        if (element.dataset.rhahOrderableListId === list.draggingId) {
+          continue
         }
 
         const targetRect = list.getRect(element)
         const mightSwap = intrudesDown(dy, list.downRect, targetRect)
 
+        const isLastElement = elementIndex === list.maxElementIndex
+        const isSecondToLast = elementIndex === list.maxElementIndex - 1
+        const lastElementIsDetached =
+          list.elements[list.maxElementIndex].dataset.rhahOrderableListId ===
+          list.draggingId
+
+        const isLastPossibleElement =
+          isLastElement || (isSecondToLast && lastElementIsDetached)
+
         if (
-          elementIndex === list.maxElementIndex &&
+          isLastPossibleElement &&
           isBelow(dx, dy, list.downRect, targetRect)
         ) {
           newItemIndex = -2
@@ -312,13 +334,13 @@ const getMouseMoveHandler = (
 
         log &&
           console.log(
-            elementIndex,
-            element.innerHTML,
-            mightSwap ? "might swap" : "too low"
+            `${element.innerHTML || "placeholder"} (${elementIndex}) ${
+              mightSwap ? "might swap" : "too low"
+            }`
           )
 
         if (mightSwap) {
-          newItemIndex = itemIndex
+          newItemIndex = elementIndex
         } else {
           break
         }
@@ -330,6 +352,10 @@ const getMouseMoveHandler = (
         elementIndex--
       ) {
         const element = list.elements[elementIndex]
+
+        if (element.dataset.rhahOrderableListId === list.draggingId) {
+          continue
+        }
 
         const targetRect = list.getRect(element)
 
@@ -348,13 +374,6 @@ const getMouseMoveHandler = (
           newItemIndex = -2
           break
         }
-
-        log &&
-          console.log(
-            elementIndex,
-            element.innerHTML,
-            mightSwap ? "might swap" : "too high"
-          )
 
         /**
          * Returns the "item index" which is usually the same as the "element
@@ -376,6 +395,15 @@ const getMouseMoveHandler = (
           return elementIndex - 1
         }
 
+        log &&
+          console.log(
+            `${
+              element.innerHTML || "placeholder"
+            } (${elementIndex}/${getItemIndex()}) ${
+              mightSwap ? "might swap" : "too high"
+            }`
+          )
+
         if (mightSwap) {
           newItemIndex = getItemIndex()
         } else {
@@ -384,15 +412,13 @@ const getMouseMoveHandler = (
       }
     }
 
-    // In the initial placement of the placeholder, we want to leave the
-    // dragElement in place, so that the lower elements don't jump up into an
-    // empty space. So we need to wait to set this style.position value until
-    // AFTER we calculate the intrusion. At least on the first mousemove. After
-    // that the placeholder is in the list so it doesn't matter.
-    list.downElement.style.position = "absolute"
-    list.downElement.style.top = position.top
-    list.downElement.style.left = position.left
-
+    log &&
+      console.log(
+        "newItemIndex",
+        newItemIndex,
+        "existing",
+        list.placeholderItemIndex
+      )
     if (list.placeholderItemIndex !== newItemIndex) {
       list.placeholderItemIndex = newItemIndex
       onDragTo(newItemIndex)

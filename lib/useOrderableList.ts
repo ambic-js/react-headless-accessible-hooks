@@ -114,17 +114,19 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     }
 
     if (isPlaceholder(item)) {
+      const rect = service.downRect
       const props: PlaceholderProps = {
         "data-rhah-orderable-list-id": item.id,
         style: {
-          width: service.downRect?.width,
-          height: service.downRect?.height,
+          width: rect ? `${Math.floor(rect.width)}px` : undefined,
+          height: rect ? `${Math.floor(rect.height)}px` : undefined,
         },
         ref: (element) => {
           if (!element) return
           service.pushElement(element, elementIndex)
         },
       }
+      console.log(props)
       return props
     }
 
@@ -171,6 +173,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
 
     service.startTracking(id, event, {
       onDragTo: (index: number) => {
+        console.log("setting placeholder to", index)
         setPlaceholderIndex(index)
       },
     })

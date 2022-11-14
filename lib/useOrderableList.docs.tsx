@@ -52,7 +52,7 @@ export const Basic = (
         },
         {
           id: "3",
-          handle: "@PavelASamsonov",
+          handle: "@pavelasamsonov",
         },
       ]
 
