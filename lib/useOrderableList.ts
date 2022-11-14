@@ -1,7 +1,7 @@
 import type React from "react"
 import { useState, useMemo, useEffect } from "react"
 import short from "short-uuid"
-import { DragService } from "./DragService"
+import { DragService, isPlaceholderId } from "./DragService"
 import { assertHTMLTarget } from "~/helpers"
 
 type ObjectWithId = {
@@ -31,7 +31,8 @@ type PlaceholderProps = Pick<
   React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>,
   "style"
 > & {
-  "data-rhah-placeholder": "true"
+  "data-rhah-orderable-list-id": string
+  ref: (element: HTMLElement | null) => void
 }
 
 type UseOrderableListOptions = {
@@ -59,13 +60,6 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
       })
   )
 
-  // It's a bit unusual to fire a mutation on every render, but in this case
-  // we want to ensure the list length is correct on each render because the
-  // `getItemProps` function includes a callback ref that will sync the
-  // elements to the DragService on every render
-  /// this would move down below so it could use itemsAndPlaceholders?
-  service.resetElementList(orderedIds)
-
   const [placeholderIndex, setPlaceholderIndex] = useState(-1)
   const [draggingId, setDraggingId] = useState<string | undefined>()
 
@@ -74,6 +68,14 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   }, [service])
 
   // const itemPropsCache = useRef<Record<string, ItemProps>>({})
+
+  useEffect(() => {
+    if (items.some((item) => isPlaceholderId(item.id))) {
+      throw new Error(
+        `Your item array has an item.id that starts with "rhah-placeholder-" which doesn't work because that's how the useOrderableList hook tells whether an id is a placeholder id`
+      )
+    }
+  }, [items])
 
   const itemsAndPlaceholders = useMemo(
     function insertPlaceholders() {
@@ -96,21 +98,32 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     [items, placeholderIndex]
   )
 
-  const getItemProps = (index: number) => {
-    const item = itemsAndPlaceholders[index]
+  // It's a bit unusual to fire a mutation on every render, but in this case
+  // we want to ensure the list length is correct on each render because the
+  // `getItemProps` function includes a callback ref that will sync the
+  // elements to the DragService on every render
+  service.resetElementList(itemsAndPlaceholders.map((item) => item.id))
+
+  const getItemProps = (elementIndex: number) => {
+    const item = itemsAndPlaceholders[elementIndex]
     if (!item) {
-      throw new Error(`No item at index ${index}. Max index is ${items.length}`)
+      const maxIndex = itemsAndPlaceholders.length - 1
+      throw new Error(
+        `No item at index ${elementIndex}. Max index is ${maxIndex}`
+      )
     }
 
     if (isPlaceholder(item)) {
       const props: PlaceholderProps = {
-        "data-rhah-placeholder": "true", /// delete
-        /// add rhahOrderableListId so the rect can be cached if we ever uncomment that
+        "data-rhah-orderable-list-id": item.id,
         style: {
           width: service.downRect?.width,
           height: service.downRect?.height,
         },
-        /// need to push an id from a callback ref here
+        ref: (element) => {
+          if (!element) return
+          service.pushElement(element, elementIndex)
+        },
       }
       return props
     }
@@ -125,11 +138,6 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     // if (list.isDragging) {
     //   style.pointerEvents = "none"
     // }
-
-    /// this would have to be just the index?
-    const indexIgnoringPlaceholders = itemsAndPlaceholders
-      .slice(0, index)
-      .filter((item) => !isPlaceholder(item)).length
 
     const props: ItemProps = {
       onMouseMove: (event) => {
@@ -147,7 +155,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
       style,
       ref: (element) => {
         if (!element) return
-        service.pushElement(element, indexIgnoringPlaceholders)
+        service.pushElement(element, elementIndex)
       },
     }
 

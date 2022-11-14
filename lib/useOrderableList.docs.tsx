@@ -69,7 +69,6 @@ export const Basic = (
               const sortedUsers = sortBy(initialUsers, (user) =>
                 sortedIds.indexOf(user.id)
               )
-              console.log(sortedUsers.map(({ handle }) => handle))
               setUsers(sortedUsers)
             },
           })
