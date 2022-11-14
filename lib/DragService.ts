@@ -266,7 +266,7 @@ const getMouseMoveHandler = (
 
     const dy = event.clientY - list.downAt.y
     const dx = event.clientX - list.downAt.x
-    const log = false // Math.random() < 0.025
+    const log = true //Math.random() < 0.025
     const dyFromLastPoint = event.clientY - list.lastPoint.y
 
     const direction =
@@ -356,14 +356,20 @@ const getMouseMoveHandler = (
             mightSwap ? "might swap" : "too high"
           )
 
+        /**
+         * Returns the "item index" which is usually the same as the "element
+         * index" but not always
+         */
         const getItemIndex = () => {
-          // We may not have placed the placeholder yet:
+          // If this is the placeholder, they are the same:
+          if (isPlaceholderId(element.dataset.rhahOrderableListId || "")) {
+            return elementIndex
+          }
+          // If we didn't place the placeholder yet, they are the same:
           if (!list.placeholderItemIndex) return elementIndex
-          // If the placeholder is below the element in the list, the item index
-          // and element index are the same:
+          // If the placeholder is below the element in the list, they are the same:
           if (list.placeholderItemIndex > elementIndex) return elementIndex
-          // If there is no placeholder, the item index and the element index
-          // are the same:
+          // If there is no placeholder, they are the same:
           if (list.placeholderItemIndex < 0) return elementIndex
           // Otherwise the placeholder is before the element and the item index
           // is one less than the element index:
