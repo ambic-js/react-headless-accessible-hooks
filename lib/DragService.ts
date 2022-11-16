@@ -165,6 +165,27 @@ export class DragService {
     }
   }
 
+  /**
+   * Returns the "item index" which is usually the same as the "element
+   * index" but not always
+   */
+  getItemIndex(elementIndex: number) {
+    const element = this.elements[elementIndex]
+    // If this is the placeholder, they are the same:
+    if (isPlaceholderId(element.dataset.rhahOrderableListId || "")) {
+      return elementIndex
+    }
+    // If we didn't place the placeholder yet, they are the same:
+    if (!this.placeholderItemIndex) return elementIndex
+    // If the placeholder is below the element in the list, they are the same:
+    if (this.placeholderItemIndex > elementIndex) return elementIndex
+    // If there is no placeholder, they are the same:
+    if (this.placeholderItemIndex < 0) return elementIndex
+    // Otherwise the placeholder is before the element and the item index
+    // is one less than the element index:
+    return elementIndex - 1
+  }
+
   startTracking(
     id: string,
     event: Pick<MouseEvent, "clientX" | "clientY" | "stopPropagation">,
@@ -259,7 +280,7 @@ export class DragService {
       const newItemIds = moveItemTo(
         oldItemIds,
         (id) => id === droppedId,
-        this.placeholderItemIndex
+        this.placeholderItemIndex // this is wrong because it's "might swap" on the placeholder but by definition, placeholder items shouldn't be included in item indexes
       )
 
       debugger
@@ -401,37 +422,17 @@ const getMouseMoveHandler = (
           break
         }
 
-        /**
-         * Returns the "item index" which is usually the same as the "element
-         * index" but not always
-         */
-        const getItemIndex = () => {
-          // If this is the placeholder, they are the same:
-          if (isPlaceholderId(element.dataset.rhahOrderableListId || "")) {
-            return elementIndex
-          }
-          // If we didn't place the placeholder yet, they are the same:
-          if (!list.placeholderItemIndex) return elementIndex
-          // If the placeholder is below the element in the list, they are the same:
-          if (list.placeholderItemIndex > elementIndex) return elementIndex
-          // If there is no placeholder, they are the same:
-          if (list.placeholderItemIndex < 0) return elementIndex
-          // Otherwise the placeholder is before the element and the item index
-          // is one less than the element index:
-          return elementIndex - 1
-        }
-
         log &&
           console.log(
             `${
               element.innerHTML || "placeholder"
-            } (${elementIndex}/${getItemIndex()}) ${
+            } (${elementIndex}/${list.getItemIndex(elementIndex)}) ${
               mightSwap ? "might swap" : "too high"
             }`
           )
 
         if (mightSwap) {
-          newItemIndex = getItemIndex()
+          newItemIndex = list.getItemIndex(elementIndex)
         } else {
           break
         }
