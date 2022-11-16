@@ -134,8 +134,12 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
 
     const style: React.CSSProperties =
       item.id === draggingId
-        ? { width: service.downRect?.width, height: service.downRect?.height }
-        : {}
+        ? {
+            width: service.downRect?.width,
+            height: service.downRect?.height,
+            userSelect: "none",
+          }
+        : { userSelect: "none" }
 
     // if (list.isDragging) {
     //   style.pointerEvents = "none"
@@ -148,7 +152,6 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
           return
         }
         startDrag(item.id, event)
-        // event.preventDefault()
       },
       onMouseDown: (event) => {
         service.onMouseDown(event)
