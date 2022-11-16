@@ -1,5 +1,5 @@
 import without from "lodash/without"
-import { assertHTMLTarget } from "~/helpers"
+import { assertHTMLTarget, moveItemTo } from "~/helpers"
 
 type Point = { x: number; y: number }
 
@@ -176,6 +176,16 @@ export class DragService {
       )
     }
 
+    // In the initial drag, we're in a bit of a weird state because the
+    // placeholder will not be added to the list yet, and yet the element
+    // bounding rects are going to appear as if they are, since we're just about
+    // to pop the dragging element out of the list. So we need to manually
+    // position the placeholder for this first drag event, and after this we'll
+    // let the window.mousemove handler take care of placeholder positioning.
+    // But for this first time we stop propagation because that window mousemove
+    // handler will do the wrong thing in this initial state:
+    event.stopPropagation()
+
     this.isDragging = true
     this.draggingId = id
 
@@ -187,12 +197,6 @@ export class DragService {
     // when the drag stops.
     this.handleMove = getMouseMoveHandler(this, onDragTo)
 
-    // This would've been a mousemove event so we should handle that so we
-    // report back the correct placeholderIndex to the hook... although I'm
-    // thinking maybe we can skip this because we add a window mousemove handler
-    // and then this event bubbles up to that? this.handleMove(event)
-
-    event.stopPropagation()
     const startIndex = this.orderedElementIds.indexOf(id)
     this.placeholderItemIndex = startIndex
     const position = this.getDragElementPosition(event)
@@ -249,16 +253,17 @@ export class DragService {
         return
       }
 
-      // First remove the id we're dragging:
-      const orderedItemIds = without(this.orderedElementIds, droppedId)
-      // Then find the placeholder:
-      const placeholderItemIndex = orderedItemIds.findIndex((id) => {
-        return isPlaceholderId(id)
-      })
-      // Then replace the placeholder with the dragged item:
-      orderedItemIds[placeholderItemIndex] = droppedId
+      const oldItemIds = this.orderedElementIds.filter(
+        (id) => !isPlaceholderId(id)
+      )
+      const newItemIds = moveItemTo(
+        oldItemIds,
+        (id) => id === droppedId,
+        this.placeholderItemIndex
+      )
 
-      this.onDragEnd(orderedItemIds)
+      debugger
+      this.onDragEnd(newItemIds)
     }
 
     window.addEventListener("mousemove", this.handleMove)
@@ -286,16 +291,16 @@ const withoutPlaceholderIds = (ids: string[]) => {
 }
 
 const getMouseMoveHandler = (
-  // todo: rename to service
   list: DragService,
   onDragTo: (index: number) => void
 ) =>
   function handleMouseMove(event: Pick<MouseEvent, "clientX" | "clientY">) {
+    console.log("handlemousemove")
     assertDragging(list, "getMouseMoveHandler")
 
     const dy = event.clientY - list.downAt.y
     const dx = event.clientX - list.downAt.x
-    const log = false //Math.random() < 0.025
+    const log = true //Math.random() < 0.025
     const dyFromLastPoint = event.clientY - list.lastPoint.y
 
     const rawDirection =
@@ -312,9 +317,9 @@ const getMouseMoveHandler = (
     list.downElement.style.top = position.top
     list.downElement.style.left = position.left
 
-    if (!list.didMountPlaceholder) {
-      return
-    }
+    // if (!list.didMountPlaceholder) {
+    //   return
+    // }
 
     let newItemIndex = list.placeholderItemIndex || -2
 
@@ -346,6 +351,7 @@ const getMouseMoveHandler = (
           isLastPossibleElement &&
           isBelow(dx, dy, list.downRect, targetRect)
         ) {
+          console.log("break")
           newItemIndex = -2
           break
         }

@@ -126,7 +126,7 @@ describe("useOrderableList", () => {
     expect(onClick).toHaveBeenCalledOnce()
   })
 
-  it("should pop the element out and add a placeholder if we drag", () => {
+  it.only("should pop the element out and add a placeholder if we drag", () => {
     const { getAllByRole } = render(<List />)
 
     const items = getAllByRole("listitem")
@@ -156,9 +156,9 @@ describe("useOrderableList", () => {
     const dragStartItems = getAllByRole("listitem")
 
     // Should insert the Placeholder into the list and size it
-    expect(dragStartItems).toHaveLength(4)
+    expect(dragStartItems).toHaveLength(4) ///
 
-    const [first, placeholder] = dragStartItems
+    const [placeholder, first] = dragStartItems
 
     expect(placeholder.innerHTML).toEqual("Placeholder")
     expect(first.innerHTML).toEqual("@yvonnezlam")
@@ -208,8 +208,8 @@ describe("useOrderableList", () => {
 
     // Expect placeholder to have been added
     expect(dragStartItems).toHaveLength(4)
-    expect(dragStartItems[0].innerHTML).toBe("@yvonnezlam")
-    expect(dragStartItems[1].innerHTML).toBe("Placeholder")
+    expect(dragStartItems[0].innerHTML).toBe("Placeholder")
+    expect(dragStartItems[1].innerHTML).toBe("@yvonnezlam")
     expect(dragStartItems[2].innerHTML).toBe("@rsms")
 
     mockDomRects(dragStartItems)
@@ -225,8 +225,8 @@ describe("useOrderableList", () => {
 
     // Since we will only be 9 pixels (less than halfway) into the second item,
     // expect that the order is still the same
-    expect(itemsAfter9px[0].innerHTML).toBe("@yvonnezlam")
-    expect(itemsAfter9px[1].innerHTML).toBe("Placeholder")
+    expect(itemsAfter9px[0].innerHTML).toBe("Placeholder")
+    expect(itemsAfter9px[1].innerHTML).toBe("@yvonnezlam")
     expect(itemsAfter9px[2].innerHTML).toBe("@rsms")
 
     mockDomRects(itemsAfter9px)
@@ -326,7 +326,7 @@ describe("useOrderableList", () => {
     const itemsAfterDrop = getAllByRole("listitem")
 
     expect(itemsAfterDrop).toHaveLength(3)
-    expect(itemsAfterDrop[0].innerHTML).toBe("@rsms")
+    expect(itemsAfterDrop[0].innerHTML).toBe("@rsms") ///
     expect(itemsAfterDrop[1].innerHTML).toBe("@yvonnezlam")
     expect(itemsAfterDrop[2].innerHTML).toBe("@pavelasamsonov")
 

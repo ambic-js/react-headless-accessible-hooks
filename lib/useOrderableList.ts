@@ -53,6 +53,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     () =>
       new DragService(orderedIds, {
         onDragEnd: (newOrderedIds) => {
+          console.log("new order!", newOrderedIds)
           setPlaceholderIndex(-1)
           setDraggingId(undefined)
           setOrder(newOrderedIds)
@@ -100,6 +101,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     [items, placeholderIndex]
   )
 
+  console.log("placeholder at", placeholderIndex)
   // It's a bit unusual to fire a mutation on every render, but in this case
   // we want to ensure the list length is correct on each render because the
   // `getItemProps` function includes a callback ref that will sync the
