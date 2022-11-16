@@ -37,6 +37,7 @@ type PlaceholderProps = Pick<
 
 type UseOrderableListOptions = {
   onOrderChange?: (ids: string[]) => void
+  dragOutIsAllowed?: boolean
 }
 
 /**
@@ -44,7 +45,7 @@ type UseOrderableListOptions = {
  */
 export const useOrderableList = <ItemType extends ObjectWithId>(
   items: ItemType[],
-  { onOrderChange }: UseOrderableListOptions
+  { onOrderChange, dragOutIsAllowed = true }: UseOrderableListOptions
 ) => {
   const [orderedIds, setOrder] = useState(() => items.map(({ id }) => id))
 
@@ -57,6 +58,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
           setOrder(newOrderedIds)
           onOrderChange?.(newOrderedIds)
         },
+        dragOutIsAllowed,
       })
   )
 
@@ -134,11 +136,13 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     const style: React.CSSProperties =
       item.id === draggingId
         ? {
+            position: "absolute",
             width: service.downRect?.width,
             height: service.downRect?.height,
             userSelect: "none",
+            cursor: "grabbing",
           }
-        : { userSelect: "none" }
+        : { userSelect: "none", cursor: "grab" }
 
     // if (list.isDragging) {
     //   style.pointerEvents = "none"
@@ -153,7 +157,13 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
         startDrag(item.id, event)
       },
       onMouseDown: (event) => {
+        assertHTMLTarget(event)
+        event.target.style.cursor = "grabbing"
         service.onMouseDown(event)
+      },
+      onMouseUp: (event) => {
+        assertHTMLTarget(event)
+        event.target.style.cursor = "grab"
       },
       "data-rhah-orderable-list-id": item.id,
       style,

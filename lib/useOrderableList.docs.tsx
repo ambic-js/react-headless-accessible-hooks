@@ -27,7 +27,6 @@ const Card = styled("div", {
   paddingLeft: 8,
   paddingRight: 8,
   marginBottom: 8,
-  cursor: "grab",
 
   variants: {
     isDragging: {
@@ -71,6 +70,7 @@ export const Basic = (
               )
               setUsers(sortedUsers)
             },
+            dragOutIsAllowed: true,
           })
 
         return (

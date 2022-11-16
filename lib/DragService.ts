@@ -5,6 +5,7 @@ type Point = { x: number; y: number }
 
 type DragServiceOptions = {
   onDragEnd: (newOrderedIds: string[]) => void
+  dragOutIsAllowed: boolean
 }
 
 /**
@@ -49,10 +50,16 @@ export class DragService {
   onDragEnd: (newOrderedIds: string[]) => void
   orderedElementIds: string[]
   placeholderItemIndex: number | undefined
+  originalItemIndex: number | undefined
   didMountPlaceholder = false
+  dragOutIsAllowed: boolean
 
-  constructor(ids: string[], { onDragEnd }: DragServiceOptions) {
+  constructor(
+    ids: string[],
+    { onDragEnd, dragOutIsAllowed }: DragServiceOptions
+  ) {
     this.orderedElementIds = ids
+    this.dragOutIsAllowed = dragOutIsAllowed
     this.onDragEnd = onDragEnd
   }
 
@@ -62,6 +69,12 @@ export class DragService {
     this.lastDirection = undefined
     this.downElement = event.target
     this.downId = event.target.dataset.rhahOrderableListId
+    this.originalItemIndex = this.elements.findIndex(
+      (element) => element.dataset.rhahOrderableListId === this.downId
+    )
+    if (this.originalItemIndex < 0) {
+      throw new Error("what is original index?")
+    }
     this.downRect = event.target.getBoundingClientRect()
     this.didMountPlaceholder = false
   }
@@ -183,7 +196,6 @@ export class DragService {
     const startIndex = this.orderedElementIds.indexOf(id)
     this.placeholderItemIndex = startIndex
     const position = this.getDragElementPosition(event)
-    this.downElement.style.position = "absolute"
     this.downElement.style.top = position.top
     this.downElement.style.left = position.left
     onDragTo(startIndex)
@@ -440,6 +452,9 @@ const getMouseMoveHandler = (
         "existing",
         list.placeholderItemIndex
       )
+
+    if (newItemIndex < 0 && !list.dragOutIsAllowed) return
+
     if (list.placeholderItemIndex !== newItemIndex) {
       list.placeholderItemIndex = newItemIndex
       onDragTo(newItemIndex)
