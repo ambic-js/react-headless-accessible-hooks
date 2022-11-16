@@ -126,7 +126,6 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
           service.pushElement(element, elementIndex)
         },
       }
-      console.log(props)
       return props
     }
 
@@ -176,7 +175,6 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
 
     service.startTracking(id, event, {
       onDragTo: (index: number) => {
-        console.log("setting placeholder to", index)
         setPlaceholderIndex(index)
       },
     })

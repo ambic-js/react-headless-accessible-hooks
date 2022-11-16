@@ -127,6 +127,16 @@ export class DragService {
     return rect
   }
 
+  getLastRect() {
+    if (this.maxElementIndex < 0) return
+    const element = this.elements[this.maxElementIndex]
+    if (element.dataset.rhahOrderableListId !== this.draggingId) {
+      return this.getRect(element)
+    }
+    if (this.maxElementIndex < 1) return
+    return this.getRect(this.elements[this.maxElementIndex - 1])
+  }
+
   getDragElementPosition(event: Pick<MouseEvent, "clientX" | "clientY">): {
     top: string
     left: string
@@ -276,12 +286,10 @@ const getMouseMoveHandler = (
     const log = false //Math.random() < 0.025
     const dyFromLastPoint = event.clientY - list.lastPoint.y
 
-    const direction =
-      dyFromLastPoint > 0
-        ? "down"
-        : dyFromLastPoint < 0
-        ? "up"
-        : list.lastDirection || "down"
+    const rawDirection =
+      dyFromLastPoint > 0 ? "down" : dyFromLastPoint < 0 ? "up" : undefined
+
+    const direction = rawDirection ? rawDirection : list.lastDirection || "down"
 
     list.lastDirection = direction
     list.lastPoint = { x: event.clientY, y: event.clientY }
@@ -359,13 +367,13 @@ const getMouseMoveHandler = (
 
         const targetRect = list.getRect(element)
 
-        const mightSwap = intrudesUp(dy, list.downRect, targetRect)
-
         const firstElementIsDetached =
           list.elements[0].dataset.rhahOrderableListId === list.draggingId
 
         const isLastPossibleElement =
           (elementIndex === 1 && firstElementIsDetached) || elementIndex === 0
+
+        const mightSwap = intrudesUp(dy, list.downRect, targetRect)
 
         if (
           isLastPossibleElement &&
@@ -410,6 +418,19 @@ const getMouseMoveHandler = (
           break
         }
       }
+    }
+
+    const lastRect = list.getLastRect()
+    const overlaps =
+      lastRect && wouldOverlapBottom(dx, dy, list.downRect, lastRect)
+    if (
+      rawDirection !== "down" &&
+      newItemIndex < 0 &&
+      list.placeholderItemIndex !== undefined &&
+      list.placeholderItemIndex < 0 &&
+      overlaps
+    ) {
+      newItemIndex = list.maxElementIndex + 1
     }
 
     log &&
@@ -460,10 +481,9 @@ const intrudesUp = (
   draggingItemRect: DOMRect,
   targetItemRect: DOMRect
 ) => {
-  if (
-    draggingItemRect.top + dy <
-    targetItemRect.bottom - draggingItemRect.height / 2
-  ) {
+  const threshold = targetItemRect.bottom - draggingItemRect.height / 2
+
+  if (draggingItemRect.top + dy < threshold) {
     return true
   }
   return false
@@ -495,6 +515,32 @@ const isAbove = (
   if (draggingItemRect.bottom + dy < targetItemRect.top) return true
   if (draggingItemRect.right + dx < targetItemRect.left) return true
   if (draggingItemRect.left + dx > targetItemRect.right) return true
+  return false
+}
+
+const wouldOverlapBottom = (
+  dx: number,
+  dy: number,
+  draggingItemRect: DOMRect,
+  lastItemRect: DOMRect
+) => {
+  if (draggingItemRect.right + dx < lastItemRect.left) return false
+  if (draggingItemRect.left + dx > lastItemRect.right) return false
+
+  if (
+    draggingItemRect.top + dy <
+    lastItemRect.bottom - draggingItemRect.height / 2
+  ) {
+    return false
+  }
+
+  if (
+    draggingItemRect.top + dy <
+    lastItemRect.bottom + draggingItemRect.height
+  ) {
+    return true
+  }
+
   return false
 }
 
