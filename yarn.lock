@@ -429,6 +429,11 @@
   resolved "https://registry.yarnpkg.com/@types/json5/-/json5-0.0.29.tgz#ee28707ae94e11d2b827bcbe5270bcea7f3e71ee"
   integrity sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==
 
+"@types/lodash@^4.14.188":
+  version "4.14.188"
+  resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.188.tgz#e4990c4c81f7c9b00c5ff8eae389c10f27980da5"
+  integrity sha512-zmEmF5OIM3rb7SbLCFYoQhO4dGt2FRM9AMkxvA3LaADOF1n8in/zGJlWji9fmafLoNyz+FoL6FE0SLtGIArD7w==
+
 "@types/node@*", "@types/node@^18.11.9":
   version "18.11.9"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-18.11.9.tgz#02d013de7058cea16d36168ef2fc653464cfbad4"
@@ -781,10 +786,10 @@ check-error@^1.0.2:
   resolved "https://registry.yarnpkg.com/check-error/-/check-error-1.0.2.tgz#574d312edd88bb5dd8912e9286dd6c0aed4aac82"
   integrity sha512-BrgHpW9NURQgzoNyjfq0Wu6VFO6D7IZEmJNdtgNqpzGG8RuNFHt2jQxWlAs4HMe119chBnv+34syEZtc6IhLtA==
 
-codedocs@^0.13.0:
-  version "0.13.0"
-  resolved "https://registry.yarnpkg.com/codedocs/-/codedocs-0.13.0.tgz#986b4879eb3333c0701d8296110e3a7e946dfd8e"
-  integrity sha512-y5akQdGwYrKGlOMo8WmlBR80fUp+LipPI8Z39cjvLlfn/75bOHd61qmShMd7nzIN0nVbSZWS00SVCiwwJhcRXA==
+codedocs@^0.14.0:
+  version "0.14.0"
+  resolved "https://registry.yarnpkg.com/codedocs/-/codedocs-0.14.0.tgz#a92eff8c63dce37bfd49436515ed894e5183f4da"
+  integrity sha512-wKzm2yGXVC1Aayt4Mtk2W95uqXdX+TFYj7g8kxlQf+8T+sjyAxmCdSuQAEqA3MuWIQlIC7WVrNrMc03YrtX5Bw==
   dependencies:
     "@stitches/react" "^1.2.8"
     highlight-words "^1.2.1"
