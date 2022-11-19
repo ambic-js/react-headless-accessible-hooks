@@ -19,7 +19,6 @@ const Placeholder = styled("div", {
 const Card = styled("div", {
   borderRadius: 6,
   backgroundColor: "white",
-  boxShadow: "0px 1px 5px 0px rgba(0,0,0,0.1)",
   border: "1px solid #ddd",
   boxSizing: "border-box",
   paddingTop: 4,
@@ -27,11 +26,15 @@ const Card = styled("div", {
   paddingLeft: 8,
   paddingRight: 8,
   marginBottom: 8,
+  transitionTimingFunction: "linear",
+  transitionDuration: "24ms",
 
   variants: {
-    isDragging: {
+    isLifted: {
       "true": {
         zIndex: 2,
+        transform: "translate(-2px, -4px) rotate(0.15deg)",
+        boxShadow: "1px 4px 2px 1px rgba(0,0,0,0.05)",
       },
     },
   },
@@ -62,7 +65,7 @@ export const Basic = (
       const Following = ({ users: initialUsers }: FollowingProps) => {
         const [users, setUsers] = useState(initialUsers)
 
-        const { items, isPlaceholder, getItemProps, isDragging } =
+        const { items, isPlaceholder, getItemProps, isLifted } =
           useOrderableList(users, {
             onOrderChange: (sortedIds) => {
               const sortedUsers = sortBy(initialUsers, (user) =>
@@ -85,7 +88,7 @@ export const Basic = (
                 <Card
                   key={item.id}
                   {...getItemProps(index)}
-                  isDragging={isDragging(item.id)}
+                  isLifted={isLifted(item.id)}
                 >
                   {item.handle}
                 </Card>

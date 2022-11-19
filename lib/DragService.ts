@@ -316,12 +316,11 @@ const getMouseMoveHandler = (
   onDragTo: (index: number) => void
 ) =>
   function handleMouseMove(event: Pick<MouseEvent, "clientX" | "clientY">) {
-    console.log("handlemousemove")
     assertDragging(list, "getMouseMoveHandler")
 
     const dy = event.clientY - list.downAt.y
     const dx = event.clientX - list.downAt.x
-    const log = true //Math.random() < 0.025
+    const log = false //Math.random() < 0.025
     const dyFromLastPoint = event.clientY - list.lastPoint.y
 
     const rawDirection =

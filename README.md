@@ -8,17 +8,30 @@ Hooks to power complex interactive components, leaving the DOM and styles to you
 - [x] Set up RTL
 - [x] Add basic test for drag-n-drop
 - [x] Implement drag-n-drop
-- [ ] Keyboard control
-- [ ] Accessibility announce & roles
-- [ ] Add to bottom of list when you're within gap + height below if placeholder is gone
-- [ ] Try: Put the placeholder back where it was when you drag away
-- [ ] Grab down
-- [ ] Support handles
-- [ ] Try: Auto-center dragging element
-- [ ] Elevation
-- [ ] Rotation
-- [ ] Try: Blur placeholder
-- [ ] Fix: flicker when dragging slowly into last position
-- [ ] Fix: cursor flashing when dragging on border
+
+Finish useOrderableList + cleanup:
+
+- [x] Grab down
+- [x] Don't allow drag away
+- [x] Add to bottom of list when you're within gap + height below if placeholder is gone
+- [x] Elevation
+- [x] Hand doesn't let go on drop
+- [x] Fix: cursor flashing when dragging on border
+- [ ] Fix flashing when dragging quickly between slots
+- [ ] Re-implement drag model separate from the DOM stuff
+- [ ] Fix double dragging
 - [ ] Move out `handleUp` into its own function
 - [ ] Rename `list` to `service`
+- [ ] Remove _all_ styling from hook that aren't dynamically written
+
+Necessary for a V1 release:
+
+- [ ] Keyboard control
+- [ ] Accessibility announce & roles
+
+Maybes:
+
+- [ ] Support handles
+- [ ] Try: Auto-center dragging element
+- [ ] Rotation
+- [ ] Fix: flicker when dragging slowly into last position

@@ -56,6 +56,7 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
           console.log("new order!", newOrderedIds)
           setPlaceholderIndex(-1)
           setDraggingId(undefined)
+          setDownId(undefined)
           setOrder(newOrderedIds)
           onOrderChange?.(newOrderedIds)
         },
@@ -64,7 +65,8 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
   )
 
   const [placeholderIndex, setPlaceholderIndex] = useState(-1)
-  const [draggingId, setDraggingId] = useState<string | undefined>()
+  const [draggingId, setDraggingId] = useState<string>()
+  const [downId, setDownId] = useState<string>()
 
   useEffect(() => {
     return () => service.destroy()
@@ -152,18 +154,21 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
 
     const props: ItemProps = {
       onMouseMove: (event) => {
-        if (service.isDragging) return
+        if (service.isDragging || !downId) return
         if (!service.dragDidStartAt(item.id, event.clientX, event.clientY)) {
           return
         }
         startDrag(item.id, event)
       },
       onMouseDown: (event) => {
+        setDownId(item.id)
         assertHTMLTarget(event)
         event.target.style.cursor = "grabbing"
         service.onMouseDown(event)
       },
       onMouseUp: (event) => {
+        setDownId(undefined)
+        setDraggingId(undefined)
         assertHTMLTarget(event)
         event.target.style.cursor = "grab"
       },
@@ -192,14 +197,14 @@ export const useOrderableList = <ItemType extends ObjectWithId>(
     })
   }
 
-  const isDragging = (id: string) => {
-    return id === draggingId
+  const isLifted = (id: string) => {
+    return id === draggingId || id === downId
   }
 
   return {
     getItemProps,
     items: itemsAndPlaceholders,
     isPlaceholder,
-    isDragging,
+    isLifted,
   }
 }
